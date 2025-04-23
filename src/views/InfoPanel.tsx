@@ -32,7 +32,6 @@ export function InfoPanel() {
 
   return (
     <>
-      {renderXboxWarningEnabledSystem()}
       <p>
         {t(
           'Drag and Drop the plugins to reorder how the game loads them. Please note, this screen will show all plugins available in the plugins directory, regardless of whether they were installed by Vortex or not.'
@@ -41,20 +40,19 @@ export function InfoPanel() {
       <p>{t('Mod descriptions from mod authors may have information to determine the best order.')}</p>
       <h4>{t('Additional Information:')}</h4>
       <ul>
+        <li>{t('Vortex will create the "plugins.txt" file (if missing) upon installation of new plugins.')}</li>
         <li>{t('If installing a collection - wait for it to complete before re-visiting this page.')}</li>
-        <li>{t('Press the "Reset Plugins File" button if your plugins.txt file is in a corrupted state.')}</li>
+        <li>{t('Press the "Remove Plugins File" button if your "plugins.txt" file is in a corrupted state. This will remove the file entirely.')}</li>
         <li>{t('Press the "Refresh List" button to refresh/sync changes.')}</li>
         {displayLootInstruction(api, t)}
       </ul>
-      <h4>{t('Note:')}</h4>
-      <p>{t('LOOT is a volunteer based service which uses plugin metadata added by the community to arrange your load order in the most optimal way - it\'s possible for certain plugin metadata to be unavailable (especially if it\'s a new mod) which can result in incorrect sorting.')}</p>
     </>
   );
 }
 
 function displayLootInstruction(api: types.IExtensionApi, t: any) {
   return lootSortingAllowed(api)
-    ? <li>{t('Press the "Sort via LOOT" button to sort your plugins based on the Starfield masterlist.')}</li>
+    ? <li>{t('Press the "Sort via LOOT" button to sort your plugins based on the Oblivion Remastered masterlist.')}</li>
     : null;
 }
 
