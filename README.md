@@ -72,6 +72,10 @@ Lua mods are added to the `./OblivionRemastered/Binaries/Win64/ue4ss/Mods/mods.t
 
 Automatic Blueprint/Logic mod detection relies on the mod archive to include the `LogicMods` folder within its structure. Alternatively if the archive structure does not include it, the user can select the `Blueprint Mod` mod type by double clicking on the respective mod inside the mods page, and changing the mod type via the dropdown button in the mod panel.
 
+## Known issues
+
+- Paks are currently not sortable via a Load Order page. This is due to change in the future.
+
 ## Unsupported mods
 
 Vortex doesn't officially support managing of mods that are reshades, save game\config edits or require external tools (apart from UE4SS). 
