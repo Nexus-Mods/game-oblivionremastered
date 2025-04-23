@@ -56,7 +56,7 @@ By default, Vortex will deploy files to the game's root folder and extracts the 
 
 ## Gamebryo plugin mods
 
-If a .esp or .esm file is detected, it will be deployed to the game's datapath `./Content/Dev/ObvData/Data/`
+If a .esp or .esm file is detected, it will be deployed to the game's datapath `./OblivionRemastered/Content/Dev/ObvData/Data/`
 
 ## PAK mods
 
