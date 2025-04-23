@@ -26,7 +26,7 @@ import { installLuaMod, installRootMod, installUE4SSInjector, testLuaMod, testRo
 
 import { migrate } from './migrations';
 
-import { isGameActive, resolvePluginsFilePath, resolveRequirements, resolveUE4SSPath } from './util';
+import { getGameVersionAsync, isGameActive, resolvePluginsFilePath, resolveRequirements, resolveUE4SSPath } from './util';
 import { download } from './downloader';
 
 import OblivionReLoadOrder from './OblivionReLoadOrder'
@@ -51,6 +51,7 @@ function main(context: types.IExtensionContext) {
     requiredFiles: [
       path.join(DATA_PATH, 'Oblivion.esm'),
     ],
+    getGameVersion: () => getGameVersionAsync(context.api),
     setup: setup(context.api) as any,
     supportedTools,
     requiresLauncher: requiresLauncher as any,
