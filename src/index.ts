@@ -7,7 +7,7 @@ import { fs, log, types, selectors, util } from 'vortex-api';
 import { DEFAULT_EXECUTABLE, GAME_ID, IGNORE_CONFLICTS,
   PAK_MODSFOLDER_PATH, STEAMAPP_ID, XBOX_ID,
   MOD_TYPE_PAK, MOD_TYPE_LUA, MOD_TYPE_BP_PAK,
-  BPPAK_MODSFOLDER_PATH, MOD_TYPE_UNREAL_PAK_TOOL, IGNORE_DEPLOY,
+  BPPAK_MODSFOLDER_PATH, IGNORE_DEPLOY,
   MOD_TYPE_DATAPATH, NATIVE_PLUGINS, DATA_PATH,
 } from './common';
 
@@ -19,7 +19,7 @@ import { settingsReducer } from './reducers';
 
 import { getStopPatterns } from './stopPatterns';
 import {
-  getBPPakPath, getPakPath, testBPPakPath, testPakPath, testUnrealPakTool,
+  getBPPakPath, getPakPath, testBPPakPath, testPakPath,
   getLUAPath, testLUAPath, getDataPath, testDataPath,
 } from './modTypes';
 import { installLuaMod, installRootMod, installUE4SSInjector, testLuaMod, testRootMod, testUE4SSInjector } from './installers';
@@ -118,15 +118,6 @@ function main(context: types.IExtensionContext) {
 
   context.registerInstaller(`${GAME_ID}-lua-installer`, 30, testLuaMod as any,
     (files, destinationPath, gameId) => installLuaMod(context.api, files, destinationPath, gameId) as any);
-
-  context.registerModType(
-    MOD_TYPE_UNREAL_PAK_TOOL,
-    4,
-    (gameId) => GAME_ID === gameId,
-    () => undefined, // Don't deploy.
-    testUnrealPakTool as any,
-    { deploymentEssential: false, name: 'Unreal Pak Tool', noConflicts: true }
-  );
 
   // BP_PAK modType must have a lower priority than regular PAKs
   //  this ensures that we get a chance to detect the LogicMods folder

@@ -10,26 +10,8 @@ import {
 import { getStopPatterns, getTopLevelPatterns } from './stopPatterns';
 import { resolveUE4SSPath, findInstallFolderByFile } from './util';
 
-import { listPak } from './unrealPakParser';
-
 //#region Utility
 const hasModTypeInstruction = (instructions: types.IInstruction[]) => instructions.find(instr => instr.type === 'setmodtype');
-
-const runPakTool = async (api: types.IExtensionApi, instructions: types.IInstruction[]) => {
-  let modDir: string = undefined;
-  const filtered = instructions
-    .filter((inst: types.IInstruction) => (inst.type === 'copy') && (path.extname(inst.source) === '.pak'));
-  for (const pak of filtered) {
-    if (!modDir) {
-      modDir = await findInstallFolderByFile(api, pak.source);
-      if (!modDir) {
-        return null;
-      }
-    }
-    const data = await listPak(api, path.join(modDir, pak.source));
-    return data.modType;
-  }
-}
 //#endregion
 
 //#region MOD_TYPE_PAK
@@ -140,15 +122,7 @@ export function getBPPakPath(api: types.IExtensionApi, game: types.IGame) {
 
 export async function testBPPakPath(api: types.IExtensionApi, instructions: types.IInstruction[]): Promise<boolean> {
   if (hasModTypeInstruction(instructions)) {
-    return Promise.resolve(false);
-  }
-  try {
-    const modType = await runPakTool(api, instructions);
-    if (modType && modType === MOD_TYPE_BP_PAK) {
-      return true;
-    }
-  } catch (err) {
-    // Pak tool fudged up - resume default stop pattern installation.
+    return false;
   }
   const filteredPaks = instructions
     .filter((inst: types.IInstruction) => {
@@ -165,31 +139,7 @@ export async function testBPPakPath(api: types.IExtensionApi, instructions: type
       return true;
     });
 
-  const excludeInstructions: types.IInstruction[] = instructions.filter((inst => {
-    if (inst.type !== 'copy') return false;
-    const segments = inst.source.toLowerCase().split(path.sep);
-    if (IGNORE_CONFLICTS.includes(segments[segments.length - 1])) {
-      return true;
-    }
-    return false;
-  }))
-
-  const supported = filteredPaks.length > 0 && excludeInstructions.length === 0;
-  return Promise.resolve(supported) as any;
-}
-//#endregion
-
-//#region UnrealPakTool
-// Pak tool only needs a test function.
-export function testUnrealPakTool(instructions: types.IInstruction[]): Promise<boolean> {
-  if (hasModTypeInstruction(instructions)) {
-    return Promise.resolve(false);
-  }
-  const filtered = instructions
-    .filter((inst: types.IInstruction) => (inst.type === 'copy')
-      && UE_PAK_TOOL_FILES.includes(path.basename(inst.source)));
-
-  const supported = filtered.length === UE_PAK_TOOL_FILES.length;
+  const supported = filteredPaks.length > 0;
   return Promise.resolve(supported) as any;
 }
 //#endregion

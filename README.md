@@ -1,4 +1,4 @@
-# Vortex Extension for Palworld
+# Vortex Extension for Oblivion Remastered
 
 This is an extension for [Vortex](https://www.nexusmods.com/about/vortex/) to add support for Oblivion Remaster. The [Steam](https://store.steampowered.com/app/2623190/The_Elder_Scrolls_IV_Oblivion_Remastered/) and [Xbox](https://www.xbox.com/en-gb/games/store/the-elder-scrolls-iv-oblivion-remastered/9nqr437k7pqh) versions of Oblivion Remastered are both supported. There is currently no implementation difference between the two, but that is bound to change once a script extender is released.
 
@@ -26,17 +26,17 @@ Clone repo and run `yarn install`
 
 This extension requires Vortex **1.13.7** or greater.
 
-To install, click the Vortex button at the top of the [Oblivion Remaster Extension page on Nexus Mods](https://www.nexusmods.com/site/mods/1270), and then click Install.
+To install, click the Vortex button at the top of the [Oblivion Remastered Extension page on Nexus Mods](https://www.nexusmods.com/site/mods/1270), and then click Install.
 
 You can also manually install it by click the Manual button at the top of the page and dragging it into the drop target labelled Drop File(s) in the Extensions page at the bottom right.
 
-Afterwards, restart Vortex and you can begin installing supported Oblivion Remaster mods with Vortex.
+Afterwards, restart Vortex and you can begin installing supported Oblivion Remastered mods with Vortex.
 
 If you've already got a previous version, the extension should auto update on a Vortex restart.
 
 # Game detection
 
-The Oblivion Remaster game extension enables Vortex to automatically locate installs from the Steam and Xbox apps.
+The Oblivion Remastered game extension enables Vortex to automatically locate installs from the Steam and Xbox apps.
 
 It is also possible to manually set the game folder if the auto detection doesn't find the correct installation. A valid Oblivion Remastered game folder contains:
 
@@ -48,8 +48,7 @@ If your game lacks this file then it is likely that your installation has become
 
 There are 2 tools which are automatically downloaded and installed to help with modding this game.
 
-- [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) - a generic mod loading and scripting system for Unreal Engine games 
-- [UnrealPakTool](https://github.com/allcoolthingsatoneplace/UnrealPakTool) - enables reading of PAK file contents to help us determine what type of mod and where it needs to be deployed
+- [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) - a generic mod loading and scripting system for Unreal Engine games
 
 # Mod Management
 
@@ -71,15 +70,11 @@ Lua mods are added to the `./OblivionRemastered/Binaries/Win64/ue4ss/Mods/mods.t
 
 ## Blueprint\Logic mods
 
-If a Blueprint\Logic mod is detected, it's deployment folder is `./OblivionRemastered/Content/Paks/LogicMods`. These mods are detected by reading the contents of the PAK file and looking at it's mount point. If this fails, then Vortex falls back to looking for the existence of a `LogicMods` folder within the archive.
+Automatic Blueprint/Logic mod detection relies on the mod archive to include the `LogicMods` folder within its structure. Alternatively if the archive structure does not include it, the user can select the `Blueprint Mod` mod type by double clicking on the respective mod inside the mods page, and changing the mod type via the dropdown button in the mod panel.
 
 ## Unsupported mods
 
-Vortex doesn't officially support managing of mods that are reshades, save game\config edits or require external tools (apart from UE4SS and UnrealPakTool). 
-
-# Known Issues
-
-- Paktool is currently unable to list the contents of pak files.
+Vortex doesn't officially support managing of mods that are reshades, save game\config edits or require external tools (apart from UE4SS). 
 
 # See also
 
@@ -91,7 +86,6 @@ Vortex doesn't officially support managing of mods that are reshades, save game\
 # Thanks
 
 - The [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) team for doing an amazing job.
-- [UnrealPakTool](https://github.com/allcoolthingsatoneplace/UnrealPakTool) for enabling us to peek inside the PAK files.
 
 # Changelog
 

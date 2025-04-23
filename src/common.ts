@@ -72,22 +72,12 @@ export const UE4SSRequirement: IExtensionRequirement = {
   fileArchivePattern: new RegExp(/^UE4SS.*v(\d+\.\d+\.\d+(-\w+(\.\d+)?)?)/, 'i'),
 }
 
-export const PakToolRequirement: IExtensionRequirement = {
-  id: 'upt',
-  userFacingName: 'Unreal Pak Tool',
-  modType: MOD_TYPE_UNREAL_PAK_TOOL,
-  githubUrl: 'https://api.github.com/repos/allcoolthingsatoneplace/UnrealPakTool',
-  findMod: (api: types.IExtensionApi) => findModByFile(api, MOD_TYPE_UNREAL_PAK_TOOL, UE_PAK_TOOL_FILES[0]),
-  findDownloadId: (api: types.IExtensionApi) => findDownloadIdByFile(api, UE_PAK_TOOL_FILENAME),
-}
-
 export const DEFAULT_REQUIREMENTS: IExtensionRequirement[] = [
   { 
     ...UE4SSRequirement,
     findDownloadId: (api: types.IExtensionApi) => findDownloadIdByPattern(api, UE4SSRequirement),
     resolveVersion: (api: types.IExtensionApi) => resolveVersionByPattern(api, UE4SSRequirement),
   },
-  PakToolRequirement,
 ];
 
 export const EXTENSION_REQUIREMENTS: ExtensionRequirements = {

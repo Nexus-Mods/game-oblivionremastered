@@ -7,7 +7,7 @@ import { fs, log, selectors, types, util } from 'vortex-api';
 import {  parseStringPromise } from 'xml2js';
 
 import { UE4SS_PATH_PREFIX, GAME_ID, NOTIF_ID_BP_MODLOADER_DISABLED,
-  MOD_TYPE_LUA, NOTIF_ID_UE4SS_UPDATE, PakToolRequirement, XBOX_APP_X_MANIFEST,
+  MOD_TYPE_LUA, NOTIF_ID_UE4SS_UPDATE, XBOX_APP_X_MANIFEST,
   DATA_PATH, NATIVE_PLUGINS, GAMEBRYO_PLUGIN_EXTENSIONS, EXTENSION_REQUIREMENTS,
   DEBUG_ENABLED, DEBUG_APP_VERSION, CONSTRAINT_LOOT_FUNCTIONALITY,
 } from './common';
@@ -38,19 +38,6 @@ export function resolveRequirements(api: types.IExtensionApi): IExtensionRequire
   const state = api.getState();
   const discovery = selectors.discoveryByGame(state, GAME_ID);
   return EXTENSION_REQUIREMENTS[discovery.store] ?? EXTENSION_REQUIREMENTS.steam;
-}
-
-export async function resolveUnrealPakToolPath(api: types.IExtensionApi): Promise<string | null> {
-  const state = api.getState();
-  const requirement = PakToolRequirement;
-  if (!requirement) {
-    return null;
-  }
-  const mod: types.IMod = await requirement.findMod(api);
-  if (mod) {
-    const stagingFolder = selectors.installPathForGame(state, GAME_ID);
-    return path.join(stagingFolder, mod.installationPath);
-  }
 }
 
 export async function resolveVersionByPattern(api: types.IExtensionApi, requirement: IExtensionRequirement): Promise<string> {
