@@ -46,7 +46,7 @@ If your game lacks this file then it is likely that your installation has become
 
 # Setup & Dependencies
 
-There are 2 tools which are automatically downloaded and installed to help with modding this game.
+There is currently 1 tool which is automatically downloaded and installed to help with modding this game.
 
 - [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) - a generic mod loading and scripting system for Unreal Engine games
 
