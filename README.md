@@ -64,6 +64,8 @@ If a PAK mod is detected, it's deployment folder is `./OblivionRemastered/Conten
 
 ## Lua\UE4SS mods
 
+`WinGDK` - Xbox Game Pass
+`Win64` - All other game variants (As far as we know)
 If a LUA mod is detected, it's deployment folder is `./OblivionRemastered/Binaries/Win64/ue4ss/Mods`.
 
 Lua mods are added to the `./OblivionRemastered/Binaries/Win64/ue4ss/Mods/mods.txt` as the primary method for UE4SS detecting that the mod is installed and enabled.
@@ -75,6 +77,7 @@ Automatic Blueprint/Logic mod detection relies on the mod archive to include the
 ## Known issues
 
 - Paks are currently not sortable via a Load Order page. This is due to change in the future.
+- Non Xbox Game Pass variants of the game will display the unreal engine version rather than the game's version.
 
 ## Unsupported mods
 
