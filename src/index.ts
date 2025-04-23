@@ -42,8 +42,7 @@ function main(context: types.IExtensionContext) {
   context.registerReducer(['settings', GAME_ID, 'migrations'], settingsReducer);
   context.registerGame({
     id: GAME_ID,
-    name: 'TES IV: Oblivion Remastered',
-    shortName: 'Oblivion Remastered',
+    name: 'Oblivion Remastered',
     mergeMods: true,
     queryArgs: gameFinderQuery,
     queryModPath: () => '.',

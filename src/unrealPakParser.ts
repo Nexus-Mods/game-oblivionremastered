@@ -3,7 +3,7 @@ import * as child_process from 'child_process';
 import * as path from 'path';
 import { log, types, util } from 'vortex-api'
 
-import { MOD_TYPE_BP_PAK, MOD_TYPE_PAK, UE_PAK_TOOL_FILES } from './common';
+import { BPPAK_MODSFOLDER_PATH, MOD_TYPE_BP_PAK, MOD_TYPE_PAK, UE_PAK_TOOL_FILES } from './common';
 import { IPakExtractionInfo } from './types';
 import { formatBytes, resolveUnrealPakToolPath } from './util';
 
@@ -42,6 +42,9 @@ function parsePakListLog(logText: string): IPakExtractionInfo | null {
         const normalMount = normalizePath(mountPoint);
         extractionInfo.mountPoint = normalMount;
         mountPointSegments = normalMount.split(path.sep).map(segment => segment.toLowerCase());
+        if (['logicmods', 'mods'].some(x => mountPointSegments.includes(x))) {
+          extractionInfo.modType = MOD_TYPE_BP_PAK;
+        }
       }
     } else if (line.startsWith('LogPakFile: Display: "')) {
       const fileInfo = line.match(/"([^"]+)".*offset: (\d+), size: (\d+) bytes, sha1: ([^,]+), compression: ([^\.]+)/);
