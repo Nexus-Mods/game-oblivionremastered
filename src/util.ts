@@ -9,7 +9,8 @@ import {  parseStringPromise } from 'xml2js';
 import { BINARIES_PATH, GAME_ID, NOTIF_ID_BP_MODLOADER_DISABLED,
   MOD_TYPE_LUA, NOTIF_ID_UE4SS_UPDATE, XBOX_APP_X_MANIFEST,
   DATA_PATH, NATIVE_PLUGINS, GAMEBRYO_PLUGIN_EXTENSIONS, EXTENSION_REQUIREMENTS,
-  DIALOG_ID_RESET_PLUGINS_FILE
+  DIALOG_ID_RESET_PLUGINS_FILE,
+  NATIVE_PLUGINS_DISABLED
 } from './common';
 
 import { IExtensionRequirement, LoadOrderManagementType } from './types';
@@ -262,7 +263,8 @@ export const resetPluginsFile = async (api: types.IExtensionApi) => {
       try {
         await fs.removeAsync(pluginsFile);
         const nativePlugins = await resolveNativePlugins(api);
-        await fs.writeFileAsync(pluginsFile, nativePlugins.filter(plug => !!plug).join('\n'), { encoding: 'utf8' });
+        const pluginList = nativePlugins.map(plug => NATIVE_PLUGINS_DISABLED.includes(plug.toLowerCase()) ? `#${plug}` : plug);
+        await fs.writeFileAsync(pluginsFile, pluginList.join('\n'), { encoding: 'utf8' });
         forceRefresh(api);
       } catch (err) {
         log('warn', 'failed to remove plugins file', err);
@@ -283,9 +285,10 @@ export const resolveNativePlugins = async (api: types.IExtensionApi): Promise<st
   const dataPath = path.join(discovery.path, DATA_PATH);
   const dirContents = await fs.readdirAsync(dataPath);
   const filtered = dirContents.filter(file => GAMEBRYO_PLUGIN_EXTENSIONS.includes(path.extname(file.toLowerCase())));
+  const fullNativeList = [].concat(NATIVE_PLUGINS, NATIVE_PLUGINS_DISABLED);
   const nativePlugins = dirContents
-    .filter(file => NATIVE_PLUGINS.includes(path.basename(file).toLowerCase()))
-    .sort((a, b) => NATIVE_PLUGINS.indexOf(path.basename(a).toLowerCase()) - NATIVE_PLUGINS.indexOf(path.basename(b).toLowerCase()));
+    .filter(file => fullNativeList.includes(path.basename(file).toLowerCase()))
+    .sort((a, b) => fullNativeList.indexOf(path.basename(a).toLowerCase()) - fullNativeList.indexOf(path.basename(b).toLowerCase()));
   const matched = filtered.reduce((accum, file) => {
     if (isNativePlugin(file)) {
       accum.push(file.toLowerCase());

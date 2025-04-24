@@ -117,3 +117,8 @@ export const NATIVE_PLUGINS = [
   'altardeluxe.esp',
   'altaresplocal.esp',
 ];
+
+export const NATIVE_PLUGINS_DISABLED = [
+  'altargymnavigation.esp',
+  'tamrielleveledregion.esp',
+];

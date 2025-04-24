@@ -3,8 +3,8 @@ import React from 'react';
 import path from 'path';
 import { fs, selectors, types, util } from 'vortex-api';
 
-import { DATA_PATH, GAME_ID, GAMEBRYO_PLUGIN_EXTENSIONS, MOD_TYPE_DATAPATH } from './common';
-import { walkPath, findModByFile, resolveNativePlugins,
+import { DATA_PATH, GAME_ID, GAMEBRYO_PLUGIN_EXTENSIONS } from './common';
+import { walkPath, findModByFile,
   deserializePluginsFile, serializePluginsFile, getManagementType } from './util';
 
 import { InfoPanel } from './views/InfoPanel';
