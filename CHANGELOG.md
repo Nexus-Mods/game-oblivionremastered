@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixed gamebryo stop patterns hijacking binary mods.
 - Fixed gamebryo plugins showing as not managed by Vortex (when actually they are, but are using a different mod type)
 - Can now order native plugins if needed.
+- No longer forcefully re-enabling/re-downloading extension requirements when they're intentionally disabled
+- Steam distribution will now launch through the game store rather than the executable (bypasses the custom parameter when launching the game)
 
 ## 0.1.1 - 2025-04-23
 

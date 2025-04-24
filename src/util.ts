@@ -91,8 +91,12 @@ export function getEnabledMods(api: types.IExtensionApi, modType?: string): type
   return Object.values(mods).filter(predicate) as types.IMod[];
 }
 
-export async function findModByFile(api: types.IExtensionApi, fileName: string, modType?: string): Promise<types.IMod> {
-  const mods = getEnabledMods(api, modType);
+export async function findModByFile(api: types.IExtensionApi, fileName: string, modType?: string, onlyEnabled: boolean = true): Promise<types.IMod> {
+  const state = api.getState();
+  const mods: types.IMod[] = onlyEnabled
+    ? getEnabledMods(api, modType)
+    : Object.values(util.getSafe(state, ['persistent', 'mods', GAME_ID], {}))
+        .filter((mod: types.IMod) => !!modType ? mod.type === modType : true) as types.IMod[];
   const installationPath = selectors.installPathForGame(api.getState(), GAME_ID);
   for (const mod of mods) {
     const modPath = path.join(installationPath, mod.installationPath);

@@ -200,6 +200,14 @@ async function requiresLauncher(gamePath: string, store?: string) {
         parameters: [{ appExecName: 'AppUEGameShipping' }],
       },
     });
+  } else if (store === 'steam') {
+      return Promise.resolve({
+        launcher: 'steam',
+        addInfo: {
+          appId: STEAMAPP_ID,
+          parameters: [],
+        }
+      });
   } else {
     return Promise.resolve(undefined);
   }
