@@ -3,8 +3,9 @@ import { fs, selectors, types } from 'vortex-api';
 import path from 'path';
 
 import { MODS_FILE_BACKUP, GAME_ID, UE4SS_SETTINGS_FILE,
-  UE4SS_PATH_PREFIX, MODS_FILE, LUA_EXTENSIONS,
-  UE4SSRequirement
+  BINARIES_PATH, MODS_FILE, LUA_EXTENSIONS,
+  UE4SSRequirement,
+  UE4SS_DWMAPI
 } from './common';
 
 import { getTopLevelPatterns } from './stopPatterns';
@@ -15,25 +16,22 @@ export async function testUE4SSInjector(files: string[], gameId: string): Promis
   return { supported, requiredFiles: [] };
 }
 
-export async function installUE4SSInjector(api: types.IExtensionApi, files: string[], destinationPath: string, gameId: string): Promise<types.IInstallResult> {
+export const installUE4SSInjector = (api: types.IExtensionApi) => async (files: string[], destinationPath: string, gameId: string): Promise<types.IInstallResult> => {
   const state = api.getState();
   const discovery = selectors.discoveryByGame(state, gameId);
   const gameStore = discovery.store ?? 'steam';
   // Different gamestores means different target path?
   const architecture = gameStore === 'xbox' ? 'WinGDK' : 'Win64';
-  const expectedInstallDir = path.basename(destinationPath, '.installing');
-  const version = UE4SSRequirement.fileArchivePattern.exec(expectedInstallDir);
-  const versionAttrib: types.IInstruction = {
-    type: 'attribute',
-    key: 'version',
-    value: version[1],
-  }
-  const targetPath = path.join(UE4SS_PATH_PREFIX, architecture);
+  const dwmapiFile = files.find(file => path.basename(file).toLowerCase() === UE4SS_DWMAPI);
+  const dwmapiSegments = dwmapiFile?.split(path.sep) ?? [];
+  const cutoffIdx = dwmapiSegments.indexOf(UE4SS_DWMAPI);
+  const targetPath = path.join(BINARIES_PATH, architecture);
   const instructions = await files.reduce(async (accumP, iter) => {
     const accum = await accumP;
     const segments = iter.split(path.sep);
-    if (path.extname(segments[segments.length - 1]) !== '') {
-      const destination = path.join(targetPath, iter);
+    if (segments.length >= cutoffIdx && path.extname(segments[segments.length - 1]) !== '') {
+      const newPath = segments.slice(cutoffIdx).join(path.sep);
+      const destination = path.join(targetPath, newPath);
       if (path.basename(iter) === MODS_FILE) {
         const modsData: string = await fs.readFileAsync(path.join(destinationPath, iter), { encoding: 'utf8' });
         const modsInstr: types.IInstruction = {
@@ -53,7 +51,17 @@ export async function installUE4SSInjector(api: types.IExtensionApi, files: stri
       accum.push(instruction);
     }
     return accum;
-  }, Promise.resolve([versionAttrib]));
+  }, Promise.resolve([]));
+  const expectedInstallDir = path.basename(destinationPath, '.installing');
+  const version = UE4SSRequirement.fileArchivePattern.exec(expectedInstallDir);
+  if (version) {
+    const versionAttrib: types.IInstruction = {
+      type: 'attribute',
+      key: 'version',
+      value: version[1],
+    }
+    instructions.push(versionAttrib);
+  }
   instructions.push({
     type: 'setmodtype',
     value: '',
@@ -70,7 +78,7 @@ export async function testLuaMod(files: string[], gameId: string): Promise<types
   return { supported, requiredFiles: [] };
 }
 
-export async function installLuaMod(api: types.IExtensionApi, files: string[], destinationPath: string, gameId: string): Promise<types.IInstallResult> {
+export const installLuaMod = (api: types.IExtensionApi) => async (files: string[], destinationPath: string, gameId: string): Promise<types.IInstallResult> => {
   const luaFiles = files.filter(file => LUA_EXTENSIONS.includes(path.extname(file)));
   // We want the lua with the shortest path first as we're going to use that
   //  to ascertain if the mod requires a parent directory added or not.
@@ -133,7 +141,7 @@ export async function testRootMod(files: string[], gameId: string): Promise<type
   return Promise.resolve({ supported: rightGame && rightStructure, requiredFiles: [] });
 }
 
-export async function installRootMod(api: types.IExtensionApi, files: string[], destinationPath: string, gameId: string): Promise<types.IInstallResult> {
+export const installRootMod = (api: types.IExtensionApi) => (files: string[], destinationPath: string, gameId: string): Promise<types.IInstallResult> => {
   const setModInstr: types.IInstruction = {
     type: 'setmodtype',
     value: '',

@@ -3,7 +3,8 @@ import { log, selectors, types, util } from 'vortex-api'
 import { GAME_ID } from './common';
 import { onAddMod, onRemoveMod } from './modsFile';
 import { testUE4SSVersion, testBluePrintModManager, testMemberVariableLayout } from './tests'
-import { dismissNotifications, isLuaMod } from './util';
+import { dismissNotifications, isLuaMod, resolveRequirements } from './util';
+import { download } from './downloader';
 
 //#region API event handlers
 export const onGameModeActivated = (api: types.IExtensionApi) => async (gameMode: string) => {
@@ -33,6 +34,7 @@ export const onDidDeployEvent = (api: types.IExtensionApi) =>
     }
 
     try {
+      await download(api, resolveRequirements(api));
       await testBluePrintModManager(api, 'did-deploy');
       // await testMemberVariableLayout(api, 'did-deploy');
       await onDidDeployLuaEvent(api, profile);

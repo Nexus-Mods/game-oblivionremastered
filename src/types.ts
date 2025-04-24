@@ -4,6 +4,11 @@ export type LoadOrder = types.ILoadOrderEntry;
 export type EventType = 'did-deploy' | 'gamemode-activated';
 export type LoadOrderManagementType = 'gamebryo' | 'dnd';
 
+export interface IUE4SSLuaModEntry {
+  mod_name: string;
+  mod_enabled: boolean;
+}
+
 export interface IPakFileInfo {
   fileName: string;
   offset: number;
@@ -66,6 +71,9 @@ export interface IExtensionRequirement {
   modUrl?: string;
   // Used to determine the correct asset from GH
   fileArchivePattern?: RegExp;
+  // A self testing function to determine if the requirement is required
+  //  (determine if the requirement is installed or not, and if it is required at all)
+  isRequired: (api: types.IExtensionApi) => Promise<boolean>;
   // Used to simplify the process of finding out if the requirement is installed
   findMod?: (api: types.IExtensionApi) => Promise<types.IMod>;
   // Used to find the download id of the mod

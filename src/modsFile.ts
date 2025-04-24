@@ -1,8 +1,9 @@
 /* eslint-disable */
 import path from 'path';
-import { types, selectors, fs, util } from 'vortex-api';
+import { log, types, selectors, fs, util } from 'vortex-api';
 import { MODS_FILE, GAME_ID, MODS_FILE_BACKUP, UE4SSRequirement } from './common';
 import { resolveUE4SSPath } from './util';
+import { IUE4SSLuaModEntry } from './types';
 
 export async function onAddMod(api: types.IExtensionApi, modId: string) {
   try {
@@ -38,14 +39,24 @@ async function esureModsFileEntryAdded(api: types.IExtensionApi, modId: string) 
     throw new util.NotFound(modId);
   }
   const folderId = mod.attributes?.folderId ?? mod.installationPath;
-  const data = await fs.readFileAsync(ue4ssModsFile, { encoding: 'utf8' });
-  const lines: string[] = data.split(/\r\n/).filter(line => !!line);
-  const lineIndex = lines.findIndex(line => line.includes(`${folderId} = 1`));
-  if (lineIndex === - 1) {
-    lines.splice(-2, 0, `${folderId} = 1`);
-    await fs.writeFileAsync(ue4ssModsFile, lines.join('\r\n'), { encoding: 'utf8' });
+  try {
+    const data = await fs.readFileAsync(ue4ssModsFile, { encoding: 'utf8' });
+    const parsed: IUE4SSLuaModEntry[] = JSON.parse(util.deBOM(data.trim()));
+    const found = parsed.find(x => x.mod_name === folderId);
+    if (found) {
+      // If the entry already exists, we don't need to do anything.
+      return;
+    }
+    const newEntry: IUE4SSLuaModEntry = {
+      mod_name: folderId,
+      mod_enabled: true,
+    };
+    parsed.push(newEntry);
+    await fs.writeFileAsync(ue4ssModsFile, JSON.stringify(parsed, null, 2), { encoding: 'utf8' });
+  } catch (err) {
+    log('warn', 'Failed to modify mods file', err);
+    return;
   }
-  return;
 }
 
 // Obviously ensure you call this function while the mod entry is still installed!!
@@ -70,14 +81,15 @@ async function esureModsFileEntryRemoved(api: types.IExtensionApi, modId: string
     return;
   }
   const folderId = mod.attributes?.folderId ?? mod.installationPath;
-  const data = await fs.readFileAsync(ue4ssModsFile, { encoding: 'utf8' });
-  const lines: string[] = data.split(/\r\n/);
-  const lineIndex = lines.findIndex(line => line.includes(`${folderId} = 1`));
-  if (lineIndex !== - 1) {
-    lines.splice(lineIndex, 1);
-    await fs.writeFileAsync(ue4ssModsFile, lines.join('\r\n'), { encoding: 'utf8' });
+  try {
+    const data = await fs.readFileAsync(ue4ssModsFile, { encoding: 'utf8' });
+    const parsed: IUE4SSLuaModEntry[] = JSON.parse(util.deBOM(data.trim()));
+    const filtered = parsed.filter(x => x.mod_name !== folderId);
+    await fs.writeFileAsync(ue4ssModsFile, JSON.stringify(filtered, null, 2), { encoding: 'utf8' });
+  } catch (err) {
+    log('warn', 'Failed to modify mods file', err);
+    return;
   }
-  return;
 }
 
 export async function ensureModsFile(api: types.IExtensionApi): Promise<string> {

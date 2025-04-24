@@ -22,7 +22,13 @@ export async function download(api: types.IExtensionApi, requirements: IExtensio
   const batchActions = [];
   const profileId = selectors.lastActiveProfileForGame(api.getState(), GAME_ID);
   try {
-    for (const req of requirements) {
+    for (const req of requirements) { 
+      if (force !== true) {
+        const isRequired = await req.isRequired(api);
+        if (!isRequired) {
+          continue;
+        }
+      }
       let versionMismatch = false;
       const asset = await getLatestGithubReleaseAsset(api, req);
       const versionMatch = !!req.fileArchivePattern ? req.fileArchivePattern.exec(asset.name) : [asset.name, asset.release.tag_name];

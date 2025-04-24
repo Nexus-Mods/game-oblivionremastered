@@ -5,9 +5,10 @@ import {
   BPPAK_MODSFOLDER_PATH, PAK_MODSFOLDER_PATH,
   PAK_MOD_EXTENSIONS, IGNORE_CONFLICTS, LUA_EXTENSIONS, UE_PAK_TOOL_FILES, MOD_TYPE_PAK, MOD_TYPE_BP_PAK,
   DATA_PATH,
-  GAME_ID
+  GAME_ID,
+  BINARIES_PATH
 } from './common';
-import { getStopPatterns, getTopLevelPatterns } from './stopPatterns';
+import { getGamebryoPatterns, getStopPatterns, getTopLevelPatterns, testStopPatterns } from './stopPatterns';
 import { resolveUE4SSPath, findInstallFolderByFile } from './util';
 
 //#region Utility
@@ -47,6 +48,31 @@ export async function testPakPath(api: types.IExtensionApi, instructions: types.
 }
 //#endregion
 
+//#region MOD_TYPE_BINARIES
+export function getBinariesPath(api: types.IExtensionApi) {
+  const discovery = selectors.discoveryByGame(api.getState(), GAME_ID);
+  if (!discovery || !discovery.path) {
+    return '.';
+  }
+  const gameStore = discovery.store ?? 'steam';
+  const architecture = gameStore === 'xbox' ? 'WinGDK' : 'Win64';
+  const binariesPath = path.join(discovery.path, BINARIES_PATH, architecture);
+  return binariesPath;
+}
+
+export function testBinariesPath(instructions: types.IInstruction[]): Promise<boolean> {
+  if (hasModTypeInstruction(instructions)) {
+    return Promise.resolve(false);
+  }
+  const filtered = instructions
+    .filter((inst: types.IInstruction) => (inst.type === 'copy')
+      && (['.dll'].includes(path.extname(inst.source))));
+
+  const supported = filtered.length > 0;
+  return Promise.resolve(supported) as any;
+}
+//#endregion
+
 //#region MOD_TYPE_DATAPATH
 export function getDataPath(api: types.IExtensionApi) {
   const discovery = selectors.discoveryByGame(api.getState(), GAME_ID);
@@ -60,27 +86,10 @@ export function getDataPath(api: types.IExtensionApi) {
 export function testDataPath(instructions: types.IInstruction[]): Promise<boolean> {
   // We want to sort the instructions so that the longest paths are first
   //  this will make the modType recognition faster.
-  const sorted = instructions
-    .filter(inst => inst.type === 'copy')
-    .sort((a, b) => b.destination.length - a.destination.length);
-  const dataLevelPatterns = getStopPatterns(true);
-  const topLevelPatterns = getTopLevelPatterns(true);
-  const runThroughPatterns = (patterns: string[]) => {
-    for (const pattern of patterns) {
-      const regex = new RegExp(pattern, 'i');
-      for (const inst of sorted) {
-        const normal = inst.destination.replace(/\\/g, '/');
-        if (regex.test(normal)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  };
-  const isDataLevel = () => runThroughPatterns(dataLevelPatterns);
-  const isTopLevel = () => runThroughPatterns(topLevelPatterns);
+  const dataLevelPatterns = getGamebryoPatterns(true);
+  const isDataLevel = () => testStopPatterns(instructions, dataLevelPatterns);
   // Make sure the instructions aren't data level first
-  const supported = isDataLevel() ? true : isTopLevel() ? false : true;
+  const supported = isDataLevel();
   return Promise.resolve(supported) as any;
 }
 //#endregion

@@ -9,6 +9,7 @@ import { DEFAULT_EXECUTABLE, GAME_ID, IGNORE_CONFLICTS,
   MOD_TYPE_PAK, MOD_TYPE_LUA, MOD_TYPE_BP_PAK,
   BPPAK_MODSFOLDER_PATH, IGNORE_DEPLOY,
   MOD_TYPE_DATAPATH, NATIVE_PLUGINS, DATA_PATH,
+  MOD_TYPE_BINARIES,
 } from './common';
 
 import { onCheckModVersion, onDidDeployEvent, onDidPurgeEvent, onGameModeActivated,
@@ -21,12 +22,14 @@ import { getStopPatterns } from './stopPatterns';
 import {
   getBPPakPath, getPakPath, testBPPakPath, testPakPath,
   getLUAPath, testLUAPath, getDataPath, testDataPath,
+  getBinariesPath,
+  testBinariesPath,
 } from './modTypes';
 import { installLuaMod, installRootMod, installUE4SSInjector, testLuaMod, testRootMod, testUE4SSInjector } from './installers';
 
 import { migrate } from './migrations';
 
-import { getGameVersionAsync, isGameActive, resolvePluginsFilePath, resolveRequirements, resolveUE4SSPath } from './util';
+import { getGameVersionAsync, isGameActive, resetPluginsFile, resolvePluginsFilePath, resolveRequirements, resolveUE4SSPath, serializePluginsFile } from './util';
 import { download } from './downloader';
 
 import OblivionReLoadOrder from './OblivionReLoadOrder'
@@ -97,28 +100,16 @@ function main(context: types.IExtensionContext) {
     }, () => isGameActive(context.api));
 
   context.registerAction('fb-load-order-icons', 500, 'remove', {},
-    'Remove Plugins File', () => {
-      resolvePluginsFilePath(context.api)
-        .then(async (filePath) => {
-          try {
-            await fs.removeAsync(filePath);
-          } catch (err) {
-            log('warn', 'Failed to remove plugins file', err);
-          }
-        })
-    }, () => isGameActive(context.api));
+    'Reset Plugins File', () => { resetPluginsFile(context.api) }, () => isGameActive(context.api));
 
-  context.registerInstaller(`${GAME_ID}-ue4ss`, 10, testUE4SSInjector as any,
-    (files, destinationPath, gameId) => installUE4SSInjector(context.api, files, destinationPath, gameId) as any);
+  context.registerInstaller(`${GAME_ID}-ue4ss`, 10, testUE4SSInjector as any, installUE4SSInjector(context.api) as any);
 
   // Runs after UE4SS to ensure that we don't accidentally install UE4SS as a root mod.
   //  But must run before lua and pak installers to ensure we don't install a root mod
   //  as a lua mod.
-  context.registerInstaller(`${GAME_ID}-root-mod`, 15, testRootMod as any,
-    (files, destinationPath, gameId) => installRootMod(context.api, files, destinationPath, gameId) as any);
+  context.registerInstaller(`${GAME_ID}-root-mod`, 15, testRootMod as any, installRootMod(context.api) as any);
 
-  context.registerInstaller(`${GAME_ID}-lua-installer`, 30, testLuaMod as any,
-    (files, destinationPath, gameId) => installLuaMod(context.api, files, destinationPath, gameId) as any);
+  context.registerInstaller(`${GAME_ID}-lua-installer`, 30, testLuaMod as any, installLuaMod(context.api) as any);
 
   // BP_PAK modType must have a lower priority than regular PAKs
   //  this ensures that we get a chance to detect the LogicMods folder
@@ -158,6 +149,14 @@ function main(context: types.IExtensionContext) {
     testDataPath as any,
     { deploymentEssential: true, name: 'Data Folder' }
   );
+
+  context.registerModType(
+    MOD_TYPE_BINARIES,
+    30,
+    (gameId) => GAME_ID === gameId,
+    () => getBinariesPath(context.api),
+    testBinariesPath as any,
+    { deploymentEssential: true, name: 'Binaries Folder' });
 
   context.registerLoadOrder(new OblivionReLoadOrder(context.api));
 
