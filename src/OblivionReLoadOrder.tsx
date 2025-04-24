@@ -45,13 +45,10 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
 
     const invalidEntries: types.LoadOrder = [];
     const loadOrder: types.LoadOrder = [];
-    const nativePlugins = await resolveNativePlugins(this.mApi);
 
     // Find out which plugins are actually deployed to the data folder.
     const fileEntries = await walkPath(path.join(discovery.path, DATA_PATH), { recurse: false });
-    const plugins = fileEntries.filter(file =>
-      !nativePlugins.includes(path.basename(file.filePath))
-      && ['.esp', '.esm'].includes(path.extname(file.filePath)));
+    const plugins = fileEntries.filter(file => ['.esp', '.esm'].includes(path.extname(file.filePath)));
 
     const isInDataFolder = (plugin: string) => plugins.some(file => path.basename(file.filePath).toLowerCase() === plugin.toLowerCase());
     const isModEnabled = (modId: string) => {
@@ -61,14 +58,13 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
     };
 
     const currentLO = await deserializePluginsFile(this.mApi);
-    const filteredLO = currentLO.filter(plugin => !nativePlugins.includes(plugin));
     const deploymentNeeded = util.getSafe(this.mApi.getState(), ['persistent', 'deployment', 'needToDeploy', GAME_ID], false);
-    for (const plugin of filteredLO) {
+    for (const plugin of currentLO) {
       if (!GAMEBRYO_PLUGIN_EXTENSIONS.includes(path.extname(plugin.trim().slice(1)))) {
         continue;
       }
       const name = plugin.replace(/\#/g, '');
-      const mod = await findModByFile(this.mApi, MOD_TYPE_DATAPATH, name);
+      const mod = await findModByFile(this.mApi, name);
       const invalid = deploymentNeeded
         ? false
         : mod !== undefined
@@ -99,7 +95,7 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
       if (loadOrder.find(entry => entry.name === pluginName)) {
         continue;
       }
-      const mod = await findModByFile(this.mApi, MOD_TYPE_DATAPATH, pluginName);
+      const mod = await findModByFile(this.mApi, pluginName);
       const loEntry: types.ILoadOrderEntry = {
         enabled: true,
         id: pluginName,

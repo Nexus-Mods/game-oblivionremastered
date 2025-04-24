@@ -4,9 +4,9 @@ import semver from 'semver';
 import { fs, types, selectors, util } from 'vortex-api';
 
 import { GAME_ID, MODS_FILE_BACKUP, NS, NOTIF_ID_BP_MODLOADER_DISABLED,
-  EXTENSION_REQUIREMENTS, UE4SS_ENABLED_FILE, UE4SS_SETTINGS_FILE,
-  UE4SS_MEMBER_VARIABLE_LAYOUT_FILE, 
-  UE4SSRequirement} from './common';
+  UE4SS_ENABLED_FILE, UE4SS_SETTINGS_FILE, UE4SS_MEMBER_VARIABLE_LAYOUT_FILE,
+  NOTIF_ID_UE4SS_UPDATE, 
+} from './common';
 import { EventType } from './types';
 import { findModByFile, resolveRequirements, resolveUE4SSPath } from './util';
 import { download, getLatestGithubReleaseAsset } from './downloader';
@@ -18,7 +18,7 @@ export async function testMemberVariableLayout(api: types.IExtensionApi, eventTy
     return;
   }
 
-  let ue4ssMod = await findModByFile(api, '', UE4SS_SETTINGS_FILE);
+  let ue4ssMod = await findModByFile(api, UE4SS_SETTINGS_FILE, '');
   if (ue4ssMod === undefined) {
     return;
   }
@@ -83,6 +83,10 @@ export async function testMemberVariableLayout(api: types.IExtensionApi, eventTy
 export async function testUE4SSVersion(api: types.IExtensionApi, eventType?: EventType) {
   const t = api.translate;
   const requirement = resolveRequirements(api).find(req => req.id === 'ue4ss');
+  const ue4ssMod = await requirement.findMod(api);
+  if (!ue4ssMod) {
+    return;
+  }
   const currentVersion = await requirement.resolveVersion(api);
   const latest = await getLatestGithubReleaseAsset(api, requirement);
   const versionMatch = latest.name.match(/v?(\d+\.\d+\.\d+(-\w+(\.\d+)?)?)/);
@@ -114,12 +118,12 @@ export async function testUE4SSVersion(api: types.IExtensionApi, eventType?: Eve
     message: 'UE4SS update available',
     type: 'warning',
     allowSuppress: true,
-    id: 'oblivion-ue4ss-version',
+    id: NOTIF_ID_UE4SS_UPDATE,
     actions: [
       { title: 'More', action: more },
       {
         title: 'Download', action: (dismiss) => {
-          download(api, [requirement]);
+          download(api, [requirement], true);
           dismiss();
         }
       }
@@ -133,24 +137,9 @@ export async function testBluePrintModManager(api: types.IExtensionApi, eventTyp
     return;
   }
 
-  let ue4ssMod = await findModByFile(api, '', UE4SS_SETTINGS_FILE);
-  if (eventType === 'gamemode-activated') {
-    // It's possible that the ue4ssMod didn't have a chance to install yet.
-    //  Especially if the user just started to mod the game.
-    if (ue4ssMod === undefined) {
-      return;
-    }
-    // Make sure we disable the array cache.
-    await api.emitAndAwait('deploy-single-mod', GAME_ID, ue4ssMod.id, false);
-    await disableArrayCache(api, ue4ssMod);
-    await api.emitAndAwait('deploy-single-mod', GAME_ID, ue4ssMod.id);
+  let ue4ssMod = await findModByFile(api, UE4SS_SETTINGS_FILE, '');
+  if (ue4ssMod === undefined) {
     return;
-  } else {
-    if (!ue4ssMod) {
-      const ue4ssRequirement = resolveRequirements(api).find(req => req.id === 'ue4ss');
-      await download(api, [ue4ssRequirement]);
-      ue4ssMod = await findModByFile(api, '', UE4SS_SETTINGS_FILE);
-    }
   }
 
   const ue4ssRelPath = resolveUE4SSPath(api);
@@ -158,9 +147,8 @@ export async function testBluePrintModManager(api: types.IExtensionApi, eventTyp
   const ue4ssInstallPath = path.join(installPath, ue4ssMod.installationPath);
   const bpModLoaderPath = path.join(ue4ssInstallPath, ue4ssRelPath, 'Mods', 'BPModLoaderMod');
   const modLoaderExists = await fs.statAsync(bpModLoaderPath).then(() => true).catch(() => false);
-  const hasBackupFile = await fs.statAsync(path.join(ue4ssInstallPath, MODS_FILE_BACKUP)).then(() => true).catch(() => false);
-  if (!modLoaderExists || !hasBackupFile) {
-    await reinstallUE4SS(api, ue4ssMod, bpModLoaderPath);
+  if (!modLoaderExists) {
+    await reinstallUE4SS(api, ue4ssMod);
     return;
   }
 
@@ -169,8 +157,7 @@ export async function testBluePrintModManager(api: types.IExtensionApi, eventTyp
   return;
 }
 
-async function reinstallUE4SS(api: types.IExtensionApi, ue4ssMod: types.IMod, bpModLoaderPath: string): Promise<void> {
-  const discovery = selectors.discoveryByGame(api.getState(), GAME_ID);
+async function reinstallUE4SS(api: types.IExtensionApi, ue4ssMod: types.IMod): Promise<void> {
   const autoFix = async () => {
     try {
       const ue4ssRequirement = resolveRequirements(api).find(req => req.id === 'ue4ss');
@@ -234,7 +221,6 @@ async function enableBPModLoader(api: types.IExtensionApi, ue4ssMod: types.IMod,
   try {
     await api.emitAndAwait('deploy-single-mod', GAME_ID, ue4ssMod.id, false);
     await fs.writeFileAsync(enabledFilePath, '', { encoding: 'utf8' });
-    await disableArrayCache(api, ue4ssMod);
   } catch (err) {
     api.showErrorNotification('Failed to enable BPModLoader', 'Please ensure that UE4SS\'s BPModLoader is enabled manually', { allowReport: false });
     return Promise.resolve();
@@ -243,14 +229,3 @@ async function enableBPModLoader(api: types.IExtensionApi, ue4ssMod: types.IMod,
   }
 }
 
-async function disableArrayCache(api: types.IExtensionApi, ue4ssMod: types.IMod) {
-  const state = api.getState();
-  const stagingFolder = selectors.installPathForGame(state, GAME_ID);
-  const modPath = path.join(stagingFolder, ue4ssMod.installationPath);
-  const ue4ssRelPath = resolveUE4SSPath(api);
-  const ue4ssConfigPath = path.join(modPath, ue4ssRelPath, UE4SS_SETTINGS_FILE);
-  const data: string = await fs.readFileAsync(ue4ssConfigPath, { encoding: 'utf8' });
-  const newData = data.replace(/bUseUObjectArrayCache = true/gm, 'bUseUObjectArrayCache = false');
-  await fs.removeAsync(ue4ssConfigPath).catch(err => null);
-  await fs.writeFileAsync(ue4ssConfigPath, newData, { encoding: 'utf8' });
-}

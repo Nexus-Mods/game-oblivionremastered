@@ -42,7 +42,7 @@ export function InfoPanel() {
       <ul>
         <li>{t('Vortex will create the "plugins.txt" file (if missing) upon installation of new plugins.')}</li>
         <li>{t('If installing a collection - wait for it to complete before re-visiting this page.')}</li>
-        <li>{t('Press the "Remove Plugins File" button if your "plugins.txt" file is in a corrupted state. This will remove the file entirely.')}</li>
+        <li>{t('Press the "Reset Plugins File" button if your "plugins.txt" file is in a corrupted state. Vortex will regenerate the file')}</li>
         <li>{t('Press the "Refresh List" button to refresh/sync changes.')}</li>
         {displayLootInstruction(api, t)}
       </ul>
