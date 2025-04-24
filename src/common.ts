@@ -71,7 +71,7 @@ export const UE4SSRequirement: IExtensionRequirement = {
   modType: '',
   assemblyFileName: UE4SS_DWMAPI,
   githubUrl: 'https://api.github.com/repos/UE4SS-RE/RE-UE4SS',
-  findMod: (api: types.IExtensionApi) => findModByFile(api, '', UE4SS_SETTINGS_FILE),
+  findMod: (api: types.IExtensionApi) => findModByFile(api, UE4SS_SETTINGS_FILE, '', false),
   fileArchivePattern: new RegExp(/^UE4SS.*v(\d+\.\d+\.\d+(-\w+(\.\d+)?)?)/, 'i'),
   isRequired: async (api: types.IExtensionApi) => {
     const enabledBPMods = getEnabledMods(api, MOD_TYPE_BP_PAK);
