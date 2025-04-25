@@ -1,13 +1,16 @@
 /* eslint-disable */
 import React from 'react';
 import path from 'path';
-import { fs, selectors, types, util } from 'vortex-api';
+import { fs, log, selectors, types, util } from 'vortex-api';
 
 import { DATA_PATH, GAME_ID, GAMEBRYO_PLUGIN_EXTENSIONS } from './common';
-import { walkPath, findModByFile,
-  deserializePluginsFile, serializePluginsFile, getManagementType } from './util';
+import { walkPath, serializePluginsFile, getManagementType, isNativeLoadOrderJumbled,
+  generateLoadOrderEntry, parsePluginsFile,
+  forceRefresh
+} from './util';
 
 import { InfoPanel } from './views/InfoPanel';
+import { testPluginsFile } from './tests';
 
 class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
   public gameId: string;
@@ -33,7 +36,13 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
   }
 
   public async serializeLoadOrder(loadOrder: types.LoadOrder, prev: types.LoadOrder): Promise<void> {
-    return serializePluginsFile(this.mApi, loadOrder);
+    if (isNativeLoadOrderJumbled(loadOrder)) {
+      // Nope!
+      log('warn', 'Native plugins are in an incorrect order.');
+      await testPluginsFile(this.mApi);
+    }
+    return serializePluginsFile(this.mApi, loadOrder)
+      .then(() => forceRefresh(this.mApi));
   }
 
   public async deserializeLoadOrder(): Promise<types.LoadOrder> {
@@ -43,69 +52,41 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
       return Promise.resolve([]);
     }
 
-    const invalidEntries: types.LoadOrder = [];
-    const loadOrder: types.LoadOrder = [];
-
     // Find out which plugins are actually deployed to the data folder.
     const fileEntries = await walkPath(path.join(discovery.path, DATA_PATH), { recurse: false });
-    const plugins = fileEntries.filter(file => ['.esp', '.esm'].includes(path.extname(file.filePath)));
+    const confirmedPlugins = fileEntries.filter(file => GAMEBRYO_PLUGIN_EXTENSIONS.includes(path.extname(file.filePath)));
+    
+    const isInDataFolder = (plugin: string) =>
+      confirmedPlugins.some(file => path.basename(file.filePath).toLowerCase() === plugin.toLowerCase());
 
-    const isInDataFolder = (plugin: string) => plugins.some(file => path.basename(file.filePath).toLowerCase() === plugin.toLowerCase());
-    const isModEnabled = (modId: string) => {
-      const state = this.mApi.getState();
-      const profile = selectors.activeProfile(state);
-      return util.getSafe(profile, ['modState', modId, 'enabled'], false);
-    };
+    const loadOrderEntries = await Promise.all(confirmedPlugins.map(confirmedPlugin =>
+      generateLoadOrderEntry(this.mApi, confirmedPlugin.filePath, () => true)));
+    const currentLO = await parsePluginsFile(this.mApi, isInDataFolder);
+    loadOrderEntries.sort((a, b) => {
+      const indexA = currentLO.findIndex(entry => entry.id === a.id);
+      const indexB = currentLO.findIndex(entry => entry.id === b.id);
 
-    const currentLO = await deserializePluginsFile(this.mApi);
-    const deploymentNeeded = util.getSafe(this.mApi.getState(), ['persistent', 'deployment', 'needToDeploy', GAME_ID], false);
-    for (const plugin of currentLO) {
-      if (!GAMEBRYO_PLUGIN_EXTENSIONS.includes(path.extname(plugin.trim().slice(1)))) {
-        continue;
+      const isInvalidA = a.locked || a.data?.isInvalid;
+      const isInvalidB = b.locked || b.data?.isInvalid;
+
+      if (isInvalidA && !isInvalidB) {
+        return 1; // a is invalid, move it to the bottom
+      } else if (!isInvalidA && isInvalidB) {
+        return -1; // b is invalid, move it to the bottom
       }
-      const name = plugin.replace(/\#/g, '');
-      const mod = await findModByFile(this.mApi, name);
-      const invalid = deploymentNeeded
-        ? false
-        : mod !== undefined
-          ? isModEnabled(mod.id) && !isInDataFolder(name)
-          : !isInDataFolder(name);
-      const enabled = !plugin.startsWith('#');
-      const loEntry: types.ILoadOrderEntry = {
-        enabled: enabled && !invalid,
-        id: name,
-        name: name,
-        modId: !!mod?.id ? isModEnabled(mod.id) ? mod.id : undefined : undefined,
-        locked: invalid,
-        data: {
-          isInvalid: invalid,
-        }
-      }
-      if (invalid) {
-        invalidEntries.push(loEntry);
+
+      if (indexA === -1 && indexB === -1) {
+        return 0; // Both are not in currentLO, maintain their relative order
+      } else if (indexA === -1) {
+        return 1; // a is not in currentLO, move it to the bottom
+      } else if (indexB === -1) {
+        return -1; // b is not in currentLO, move it to the bottom
       } else {
-        if (isInDataFolder(name)) {
-          loadOrder.push(loEntry);
-        }
+        return indexA - indexB; // Sort based on their order in currentLO
       }
-    }
-
-    for (const plugin of plugins) {
-      const pluginName = path.basename(plugin.filePath);
-      if (loadOrder.find(entry => entry.name === pluginName)) {
-        continue;
-      }
-      const mod = await findModByFile(this.mApi, pluginName);
-      const loEntry: types.ILoadOrderEntry = {
-        enabled: true,
-        id: pluginName,
-        name: pluginName,
-        modId: !!mod?.id ? isModEnabled(mod.id) ? mod.id : undefined : undefined,
-      }
-      loadOrder.push(loEntry);
-    }
-
-    return Promise.resolve(loadOrder);
+    });
+    
+    return Promise.resolve(loadOrderEntries);
   }
 
   public async validate(prev: types.LoadOrder, current: types.LoadOrder): Promise<types.IValidationResult | undefined> {
@@ -122,13 +103,6 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
     }
 
     return invalid.length > 0 ? Promise.resolve({ invalid }) : Promise.resolve(undefined);
-  }
-
-  public async onFixInvalidPlugins(): Promise<void> {
-    const deserialzed = await this.deserializeLoadOrder();
-    const valid = deserialzed.filter(entry => entry.data?.isInvalid !== true);
-    await this.serializeLoadOrder(valid, []);
-    return Promise.resolve();
   }
 
   public condition(): boolean {

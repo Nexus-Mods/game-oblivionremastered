@@ -1,9 +1,10 @@
-import { log, selectors, types, util } from 'vortex-api'
+import path from 'path';
+import { fs, log, selectors, types, util } from 'vortex-api'
 
 import { GAME_ID } from './common';
 import { onAddMod, onRemoveMod } from './modsFile';
-import { testUE4SSVersion, testBluePrintModManager, testMemberVariableLayout } from './tests'
-import { dismissNotifications, isLuaMod, resolveRequirements } from './util';
+import { testUE4SSVersion, testBluePrintModManager, testMemberVariableLayout, testPluginsFile } from './tests'
+import { dismissNotifications, isLuaMod, resolvePluginsFilePath, resolveRequirements } from './util';
 import { download } from './downloader';
 
 //#region API event handlers
@@ -16,6 +17,7 @@ export const onGameModeActivated = (api: types.IExtensionApi) => async (gameMode
   try {
     await testUE4SSVersion(api);
     await testBluePrintModManager(api, 'gamemode-activated');
+    await testPluginsFile(api, 'gamemode-activated');
   } catch (err) {
     // All errors should've been handled in the test - if this
     //  notification is reported - please fix the test.
@@ -38,6 +40,7 @@ export const onDidDeployEvent = (api: types.IExtensionApi) =>
       await testBluePrintModManager(api, 'did-deploy');
       // await testMemberVariableLayout(api, 'did-deploy');
       await onDidDeployLuaEvent(api, profile);
+      await testPluginsFile(api, 'did-deploy');
     } catch (err) {
       log('warn', 'failed to test BluePrint Mod Manager', err);
     }
@@ -46,6 +49,24 @@ export const onDidDeployEvent = (api: types.IExtensionApi) =>
 }
 
 export const onWillPurgeEvent = (api: types.IExtensionApi) => async (profileId: string): Promise<void> => {
+  const state = api.getState();
+  const profile = selectors.profileById(state, profileId); 
+  if (profile?.gameId !== GAME_ID) {
+    return;
+  }
+
+  // This is a temporary fix for 1.14 not restoring the plugins.txt file correctly.
+  //  This should be removed once the issue is fixed in the core.
+  // TODO: Remove this once the core issue is fixed.
+  const pluginsFilePath = await resolvePluginsFilePath(api);
+  const tempPluginsFile = path.join(util.getVortexPath('temp'), GAME_ID, profileId, path.basename(pluginsFilePath));
+  try {
+    await fs.ensureDirWritableAsync(path.dirname(tempPluginsFile));
+    await fs.copyAsync(pluginsFilePath, tempPluginsFile, { overwrite: true });
+  } catch (err) {
+    log('warn', 'failed to copy plugins.txt', err);
+  }
+
   return;
 }
 
@@ -78,6 +99,22 @@ export const onWillDeployEvent = (api: types.IExtensionApi) => async (profileId:
   if (!discovery?.path || discovery?.store !== 'xbox') {
     // Game not discovered or not Xbox? bail.
     return;
+  }
+
+  // Check if we have a backup for the plugins.txt file - if we do - restore it.
+  //  This is a temporary fix for 1.14 not restoring the plugins.txt file correctly.
+  //  This should be removed once the issue is fixed in the core.
+  // TODO: Remove this once the core issue is fixed.
+  const pluginsFilePath = await resolvePluginsFilePath(api);
+  const tempPluginsFile = path.join(util.getVortexPath('temp'), GAME_ID, profileId, path.basename(pluginsFilePath));
+  const exists = await fs.statAsync(tempPluginsFile).then(() => true).catch(() => false);
+  if (exists) {
+    try {
+      await fs.copyAsync(tempPluginsFile, pluginsFilePath, { overwrite: true });
+      await fs.removeAsync(tempPluginsFile);
+    } catch (err) {
+      log('warn', 'failed to restore plugins.txt', err);
+    }
   }
 }
 

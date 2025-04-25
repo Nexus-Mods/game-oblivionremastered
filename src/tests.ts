@@ -3,13 +3,53 @@ import path from 'path';
 import semver from 'semver';
 import { fs, types, selectors, util } from 'vortex-api';
 
-import { GAME_ID, MODS_FILE_BACKUP, NS, NOTIF_ID_BP_MODLOADER_DISABLED,
+import { GAME_ID, NS, NOTIF_ID_BP_MODLOADER_DISABLED,
   UE4SS_ENABLED_FILE, UE4SS_SETTINGS_FILE, UE4SS_MEMBER_VARIABLE_LAYOUT_FILE,
-  NOTIF_ID_UE4SS_UPDATE, 
+  NOTIF_ID_UE4SS_UPDATE,
+  NOTIF_ID_UE4SS_VARIABLE_LAYOUT,
+  NOTIF_ID_INCORRECT_NATIVE_ORDER,
+  NATIVE_PLUGINS,
 } from './common';
 import { EventType } from './types';
-import { findModByFile, resolveRequirements, resolveUE4SSPath } from './util';
+import { findModByFile, forceRefresh, isNativeLoadOrderJumbled, parsePluginsFile, resolveRequirements, resolveUE4SSPath, serializePluginsFile } from './util';
 import { download, getLatestGithubReleaseAsset } from './downloader';
+
+export async function testPluginsFile(api: types.IExtensionApi, eventType?: EventType) {
+  const t = api.translate;
+  const state = api.getState();
+  if (selectors.activeGameId(state) !== GAME_ID) {
+    return;
+  }
+
+  const lo = await parsePluginsFile(api, () => true);
+  if (isNativeLoadOrderJumbled(lo)) {
+    api.sendNotification({
+      message: 'Native plugins are in an incorrect order',
+      type: 'warning',
+      allowSuppress: false,
+      id: NOTIF_ID_INCORRECT_NATIVE_ORDER,
+      actions: [ { title: 'Fix', action: async (dismiss) => {
+        dismiss();
+        const nativePlugins = lo.filter(plugin => NATIVE_PLUGINS.includes(plugin.id.toLowerCase()));
+        const sortedPlugins = [...lo];
+        nativePlugins.forEach((plugin, index) => {
+          const correctIndex = NATIVE_PLUGINS.indexOf(plugin.id.toLowerCase());
+          if (correctIndex !== -1) {
+            sortedPlugins.splice(sortedPlugins.indexOf(plugin), 1);
+            sortedPlugins.splice(correctIndex, 0, plugin);
+          }
+        });
+        await serializePluginsFile(api, sortedPlugins);
+        forceRefresh(api);
+        api.sendNotification({
+          message: 'Native plugins order has been corrected',
+          type: 'success',
+          displayMS: 3000,
+        });
+      }}]
+    });
+  };
+}
 
 export async function testMemberVariableLayout(api: types.IExtensionApi, eventType: EventType) {
   const t = api.translate;
@@ -45,7 +85,7 @@ export async function testMemberVariableLayout(api: types.IExtensionApi, eventTy
   };
 
   api.sendNotification({
-    id: 'oblivion-remaster-ue4ss-member-variable-layout',
+    id: NOTIF_ID_UE4SS_VARIABLE_LAYOUT,
     type: 'warning',
     message: 'UE4SS MemberVariableLayout.ini missing',
     allowSuppress: false,
