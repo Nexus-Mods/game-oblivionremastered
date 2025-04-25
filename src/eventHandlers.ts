@@ -3,8 +3,8 @@ import { fs, log, selectors, types, util } from 'vortex-api'
 
 import { GAME_ID } from './common';
 import { onAddMod, onRemoveMod } from './modsFile';
-import { testUE4SSVersion, testBluePrintModManager, testMemberVariableLayout, testPluginsFile } from './tests'
-import { dismissNotifications, isLuaMod, resolvePluginsFilePath, resolveRequirements } from './util';
+import { testUE4SSVersion, testBluePrintModManager, testLoadOrderChangeDebouncer } from './tests'
+import { dismissNotifications, isLuaMod, parsePluginsFile, resolvePluginsFilePath, resolveRequirements } from './util';
 import { download } from './downloader';
 
 //#region API event handlers
@@ -17,7 +17,8 @@ export const onGameModeActivated = (api: types.IExtensionApi) => async (gameMode
   try {
     await testUE4SSVersion(api);
     await testBluePrintModManager(api, 'gamemode-activated');
-    await testPluginsFile(api, 'gamemode-activated');
+    const loadOrder = await parsePluginsFile(api, () => true);
+    testLoadOrderChangeDebouncer.schedule(undefined, api, loadOrder);
   } catch (err) {
     // All errors should've been handled in the test - if this
     //  notification is reported - please fix the test.
@@ -40,7 +41,8 @@ export const onDidDeployEvent = (api: types.IExtensionApi) =>
       await testBluePrintModManager(api, 'did-deploy');
       // await testMemberVariableLayout(api, 'did-deploy');
       await onDidDeployLuaEvent(api, profile);
-      await testPluginsFile(api, 'did-deploy');
+      const loadOrder = await parsePluginsFile(api, () => true);
+      testLoadOrderChangeDebouncer.schedule(undefined, api, loadOrder);
     } catch (err) {
       log('warn', 'failed to test BluePrint Mod Manager', err);
     }

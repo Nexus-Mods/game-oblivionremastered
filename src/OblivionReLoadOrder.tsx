@@ -4,13 +4,13 @@ import path from 'path';
 import { fs, log, selectors, types, util } from 'vortex-api';
 
 import { DATA_PATH, GAME_ID, GAMEBRYO_PLUGIN_EXTENSIONS } from './common';
-import { walkPath, serializePluginsFile, getManagementType, isNativeLoadOrderJumbled,
+import { walkPath, serializePluginsFile, getManagementType,
   generateLoadOrderEntry, parsePluginsFile,
   forceRefresh
 } from './util';
 
 import { InfoPanel } from './views/InfoPanel';
-import { testPluginsFile } from './tests';
+import { testLoadOrderChangeDebouncer } from './tests';
 
 class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
   public gameId: string;
@@ -36,13 +36,8 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
   }
 
   public async serializeLoadOrder(loadOrder: types.LoadOrder, prev: types.LoadOrder): Promise<void> {
-    if (isNativeLoadOrderJumbled(loadOrder)) {
-      // Nope!
-      log('warn', 'Native plugins are in an incorrect order.');
-      await testPluginsFile(this.mApi);
-    }
     return serializePluginsFile(this.mApi, loadOrder)
-      .then(() => forceRefresh(this.mApi));
+      .then(() => testLoadOrderChangeDebouncer.schedule(undefined, this.mApi, loadOrder));
   }
 
   public async deserializeLoadOrder(): Promise<types.LoadOrder> {

@@ -33,6 +33,7 @@ import { getGameVersionAsync, isGameActive, resetPluginsFile, resolvePluginsFile
 import { download } from './downloader';
 
 import OblivionReLoadOrder from './OblivionReLoadOrder'
+import { testLoadOrderChangeDebouncer } from './tests';
 
 const supportedTools: types.ITool[] = [];
 

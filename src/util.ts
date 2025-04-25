@@ -313,9 +313,12 @@ export async function serializePluginsFile(api: types.IExtensionApi, plugins: ty
 }
 
 export function isNativeLoadOrderJumbled(loadOrder: types.LoadOrder): boolean {
+  if (!Array.isArray(loadOrder)) {
+    return false;
+  }
   const nativePlugins = loadOrder
-    .filter(entry => NATIVE_PLUGINS.includes(entry.name.toLowerCase()))
-    .map(entry => entry.name.toLowerCase());
+    .map(entry => entry.name.toLowerCase())
+    .filter(entry => NATIVE_PLUGINS.includes(entry));
   for (let i = 0; i < nativePlugins.length - 1; i++) {
     const correctIdx = NATIVE_PLUGINS.indexOf(nativePlugins[i]);
     const nextIndex = NATIVE_PLUGINS.indexOf(nativePlugins[i + 1]);

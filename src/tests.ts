@@ -14,31 +14,41 @@ import { EventType } from './types';
 import { findModByFile, forceRefresh, isNativeLoadOrderJumbled, parsePluginsFile, resolveRequirements, resolveUE4SSPath, serializePluginsFile } from './util';
 import { download, getLatestGithubReleaseAsset } from './downloader';
 
-export async function testPluginsFile(api: types.IExtensionApi, eventType?: EventType) {
-  const t = api.translate;
+export const testLoadOrderChangeDebouncer = new util.Debouncer((api: types.IExtensionApi, loadOrder: types.LoadOrder) => {
+  return testLoadOrderChange(api, loadOrder);
+}, 1200);
+async function testLoadOrderChange(api: types.IExtensionApi, loadOrder: types.LoadOrder) {
   const state = api.getState();
   if (selectors.activeGameId(state) !== GAME_ID) {
     return;
   }
 
-  const lo = await parsePluginsFile(api, () => true);
-  if (isNativeLoadOrderJumbled(lo)) {
+  if (isNativeLoadOrderJumbled(loadOrder)) {
     api.sendNotification({
-      message: 'Native plugins are in an incorrect order',
+      message: 'Native plugins are in an incorrect order!',
       type: 'warning',
       allowSuppress: false,
       id: NOTIF_ID_INCORRECT_NATIVE_ORDER,
       actions: [ { title: 'Fix', action: async (dismiss) => {
         dismiss();
-        const nativePlugins = lo.filter(plugin => NATIVE_PLUGINS.includes(plugin.id.toLowerCase()));
-        const sortedPlugins = [...lo];
-        nativePlugins.forEach((plugin, index) => {
-          const correctIndex = NATIVE_PLUGINS.indexOf(plugin.id.toLowerCase());
-          if (correctIndex !== -1) {
-            sortedPlugins.splice(sortedPlugins.indexOf(plugin), 1);
-            sortedPlugins.splice(correctIndex, 0, plugin);
+        const sortedPlugins = [...loadOrder];
+        const currentIndexes = loadOrder.map((entry, idx) => NATIVE_PLUGINS.includes(entry.id.toLowerCase()) ? idx : -1).filter(idx => idx !== -1);
+        const confirmedNativePlugins = currentIndexes.map(idx => loadOrder[idx]).sort((a, b) => {
+          const aIndex = NATIVE_PLUGINS.indexOf(a.id.toLowerCase());
+          const bIndex = NATIVE_PLUGINS.indexOf(b.id.toLowerCase());
+          if (aIndex === -1 || bIndex === -1) {
+            return 0;
           }
+          return aIndex - bIndex;
         });
+        for (let i = 0; i < confirmedNativePlugins.length - 1; i++) {
+          const entry = confirmedNativePlugins[i];
+          const index = currentIndexes[i];
+          if (index !== -1) {
+            sortedPlugins[index] = entry;
+          }
+        };
+        
         await serializePluginsFile(api, sortedPlugins);
         forceRefresh(api);
         api.sendNotification({
