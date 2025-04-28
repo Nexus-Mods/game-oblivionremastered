@@ -12,6 +12,8 @@ export const GAME_ID = 'oblivionremastered';
 export const NOTIF_ID_BP_MODLOADER_DISABLED = `notif-${GAME_ID}-bp-modloader-disabled`;
 export const NOTIF_ID_REQUIREMENTS = `notif-${GAME_ID}-requirements-download-notification`;
 export const NOTIF_ID_UE4SS_UPDATE = `notif-${GAME_ID}-ue4ss-version-update`;
+export const NOTIF_ID_UE4SS_VARIABLE_LAYOUT = `notif-${GAME_ID}-ue4ss-member-variable-layout`
+export const NOTIF_ID_INCORRECT_NATIVE_ORDER = `notif-${GAME_ID}-incorrect-native-order`;
 
 export const DIALOG_ID_RESET_PLUGINS_FILE = `dialog-${GAME_ID}-reset-plugins-file`;
 
@@ -33,7 +35,7 @@ export const BPPAK_MODSFOLDER_PATH = path.join(MAIN_UE_PATH, 'Content', 'Paks', 
 export const LUA_EXTENSIONS = ['.lua'];
 export const PAK_MOD_EXTENSIONS = ['.pak', '.utoc', '.ucas'];
 
-export const GAMEBRYO_PLUGIN_EXTENSIONS = ['.esm', '.esp'];
+export const GAMEBRYO_PLUGIN_EXTENSIONS = ['.esp', '.esm'];
 export const GAMEBRYO_ASSET_EXTENSIONS = ['.bsa'];
 
 export const MODS_FILE = 'mods.json';
@@ -116,4 +118,9 @@ export const NATIVE_PLUGINS = [
   'altarespmain.esp',
   'altardeluxe.esp',
   'altaresplocal.esp',
+];
+
+export const NATIVE_PLUGINS_EXCLUDED = [
+  'altargymnavigation.esp',
+  'tamrielleveledregion.esp',
 ];

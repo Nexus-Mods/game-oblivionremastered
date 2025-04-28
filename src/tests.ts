@@ -3,13 +3,63 @@ import path from 'path';
 import semver from 'semver';
 import { fs, types, selectors, util } from 'vortex-api';
 
-import { GAME_ID, MODS_FILE_BACKUP, NS, NOTIF_ID_BP_MODLOADER_DISABLED,
+import { GAME_ID, NS, NOTIF_ID_BP_MODLOADER_DISABLED,
   UE4SS_ENABLED_FILE, UE4SS_SETTINGS_FILE, UE4SS_MEMBER_VARIABLE_LAYOUT_FILE,
-  NOTIF_ID_UE4SS_UPDATE, 
+  NOTIF_ID_UE4SS_UPDATE,
+  NOTIF_ID_UE4SS_VARIABLE_LAYOUT,
+  NOTIF_ID_INCORRECT_NATIVE_ORDER,
+  NATIVE_PLUGINS,
 } from './common';
 import { EventType } from './types';
-import { findModByFile, resolveRequirements, resolveUE4SSPath } from './util';
+import { findModByFile, forceRefresh, isNativeLoadOrderJumbled, parsePluginsFile, resolveRequirements, resolveUE4SSPath, serializePluginsFile } from './util';
 import { download, getLatestGithubReleaseAsset } from './downloader';
+
+export const testLoadOrderChangeDebouncer = new util.Debouncer((api: types.IExtensionApi, loadOrder: types.LoadOrder) => {
+  return testLoadOrderChange(api, loadOrder);
+}, 1200);
+async function testLoadOrderChange(api: types.IExtensionApi, loadOrder: types.LoadOrder) {
+  const state = api.getState();
+  if (selectors.activeGameId(state) !== GAME_ID) {
+    return;
+  }
+
+  if (isNativeLoadOrderJumbled(loadOrder)) {
+    api.sendNotification({
+      message: 'Native plugins are in an incorrect order!',
+      type: 'warning',
+      allowSuppress: false,
+      id: NOTIF_ID_INCORRECT_NATIVE_ORDER,
+      actions: [ { title: 'Fix', action: async (dismiss) => {
+        dismiss();
+        const sortedPlugins = [...loadOrder];
+        const currentIndexes = loadOrder.map((entry, idx) => NATIVE_PLUGINS.includes(entry.id.toLowerCase()) ? idx : -1).filter(idx => idx !== -1);
+        const confirmedNativePlugins = currentIndexes.map(idx => loadOrder[idx]).sort((a, b) => {
+          const aIndex = NATIVE_PLUGINS.indexOf(a.id.toLowerCase());
+          const bIndex = NATIVE_PLUGINS.indexOf(b.id.toLowerCase());
+          if (aIndex === -1 || bIndex === -1) {
+            return 0;
+          }
+          return aIndex - bIndex;
+        });
+        for (let i = 0; i < confirmedNativePlugins.length - 1; i++) {
+          const entry = confirmedNativePlugins[i];
+          const index = currentIndexes[i];
+          if (index !== -1) {
+            sortedPlugins[index] = entry;
+          }
+        };
+        
+        await serializePluginsFile(api, sortedPlugins);
+        forceRefresh(api);
+        api.sendNotification({
+          message: 'Native plugins order has been corrected',
+          type: 'success',
+          displayMS: 3000,
+        });
+      }}]
+    });
+  };
+}
 
 export async function testMemberVariableLayout(api: types.IExtensionApi, eventType: EventType) {
   const t = api.translate;
@@ -45,7 +95,7 @@ export async function testMemberVariableLayout(api: types.IExtensionApi, eventTy
   };
 
   api.sendNotification({
-    id: 'oblivion-remaster-ue4ss-member-variable-layout',
+    id: NOTIF_ID_UE4SS_VARIABLE_LAYOUT,
     type: 'warning',
     message: 'UE4SS MemberVariableLayout.ini missing',
     allowSuppress: false,

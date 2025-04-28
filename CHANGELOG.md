@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.1.3 - 2025-04-25
+
+- Improved load order serialization/deserialization process.
+- 'altargymnavigation.esp', 'tamrielleveledregion.esp', plugins are now locked and disabled at the bottom of the list.
+- Added test to inform user if the order of the native plugins is incorrect.
+- Added automatic fix capability for when the native plugin order is jumbled. (will maintain the order of other entries)
+- Now sanitizing the plugins.txt file when parsing (sanity check in case the file has been edited externally)
+
 ## 0.1.2 - 2025-04-24
 
 - Remove plugins button has been changed to reset the plugins file.
