@@ -6,7 +6,7 @@ import { actions, fs, log, selectors, types, util } from 'vortex-api';
 
 import axios from 'axios';
 
-import { GAME_ID, NOTIF_ID_REQUIREMENTS } from './common';
+import { DEBUG_ENABLED, GAME_ID, NOTIF_ID_REQUIREMENTS } from './common';
 import { IExtensionRequirement, IGitHubAsset, IGitHubRelease } from './types';
 
 
@@ -25,8 +25,7 @@ export async function download(api: types.IExtensionApi, requirements: IExtensio
     for (const req of requirements) {
       const mod: types.IMod = await req.findMod(api);
       const archiveId = mod?.archiveId ?? (await req.findDownloadId?.(api));
-      // const isRequired = await req.isRequired(api);
-      const isRequired = true;
+      const isRequired = DEBUG_ENABLED ?? (await req.isRequired(api));
 
       if (force !== true && (!isRequired || !!mod || !!archiveId)) {
         // If the requirement is not required, or we already have it, skip it.
