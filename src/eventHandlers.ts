@@ -1,5 +1,4 @@
-import path from 'path';
-import { fs, log, selectors, types, util } from 'vortex-api'
+import { log, selectors, types, util } from 'vortex-api'
 
 import { GAME_ID } from './common';
 import { onAddMod, onRemoveMod } from './modsFile';

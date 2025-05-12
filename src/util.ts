@@ -11,12 +11,9 @@ import { BINARIES_PATH, GAME_ID, NOTIF_ID_BP_MODLOADER_DISABLED,
   DATA_PATH, NATIVE_PLUGINS, GAMEBRYO_PLUGIN_EXTENSIONS, EXTENSION_REQUIREMENTS,
   DIALOG_ID_RESET_PLUGINS_FILE, NATIVE_PLUGINS_EXCLUDED, DEBUG_ENABLED, obseRequirement,
   TOOL_ID_OBSE64,
-  OBSE64_EXECUTABLE
 } from './common';
 
 import { IExtensionRequirement, IPluginEntry, LoadOrderManagementType } from './types';
-import { getBinariesPath } from './modTypes';
-import { is } from 'bluebird';
 
 export function isGameActive(api: types.IExtensionApi): boolean {
   const state = api.getState();
