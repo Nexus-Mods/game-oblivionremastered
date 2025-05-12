@@ -35,8 +35,20 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
   }
 
   public async serializeLoadOrder(loadOrder: types.LoadOrder, prev: types.LoadOrder): Promise<void> {
-    return serializePluginsFile(this.mApi, loadOrder)
-      .then(() => testLoadOrderChangeDebouncer.schedule(undefined, this.mApi, loadOrder));
+    const currIsAlphabeticallySorted = this.isSortedAlphabetically(loadOrder);
+    let serializeableLoadOrder = [...loadOrder];
+    if (currIsAlphabeticallySorted) {
+      // LO should never be sorted alphabetically, try to use prev instead to avoid
+      //  breaking the load order.
+      // TODO: this is a temporary fix, we should find a better way to handle this in the core app.
+      log('warn', 'Load order entries are not sorted alphabetically.');
+      const prevIsAlphabeticallySorted = this.isSortedAlphabetically(prev);
+      if (!prevIsAlphabeticallySorted) {
+        serializeableLoadOrder = [...prev];
+      }
+    }
+    return serializePluginsFile(this.mApi, serializeableLoadOrder)
+      .then(() => testLoadOrderChangeDebouncer.schedule(undefined, this.mApi, serializeableLoadOrder));
   }
 
   public async deserializeLoadOrder(): Promise<types.LoadOrder> {
@@ -112,6 +124,13 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
 
   public condition(): boolean {
     return (getManagementType(this.mApi) === 'dnd');
+  }
+
+  private isSortedAlphabetically(loadOrder: types.LoadOrder): boolean {
+    return loadOrder.every((entry, index, array) => {
+      if (index === 0) return true;
+      return array[index - 1].name.toLowerCase() <= entry.name.toLowerCase();
+    });
   }
 }
 
