@@ -22,41 +22,46 @@ export async function download(api: types.IExtensionApi, requirements: IExtensio
   const batchActions = [];
   const profileId = selectors.lastActiveProfileForGame(api.getState(), GAME_ID);
   try {
-    for (const req of requirements) { 
-      if (force !== true) {
-        const isRequired = await req.isRequired(api);
-        if (!isRequired) {
-          continue;
-        }
-      }
-      let versionMismatch = false;
-      const asset = await getLatestGithubReleaseAsset(api, req);
-      const versionMatch = !!req.fileArchivePattern ? req.fileArchivePattern.exec(asset.name) : [asset.name, asset.release.tag_name];
-      const latestVersion = versionMatch[1];
-      const coercedVersion = util.semverCoerce(latestVersion, { includePrerelease: true});
-      const mod = await req.findMod(api);
-      if (!!mod && req.resolveVersion && force !== true) {
-        // Ensure it's the right version.
-        const version = await req.resolveVersion(api);
-        if (!semver.satisfies(`^${coercedVersion.version}`, version, { includePrerelease: true }) && coercedVersion.version !== version) {
-          versionMismatch = true;
-          batchActions.push(actions.setModEnabled(profileId, mod.id, false));
-        } else {
-          continue;
-        }
-      }
-      else if (!versionMismatch && force !== true && mod?.id !== undefined) {
-        batchActions.push(actions.setModEnabled(profileId, mod.id, true));
-        batchActions.push(actions.setModAttributes(GAME_ID, mod.id, {
-          customFileName: req.userFacingName,
-          version: coercedVersion.version,
-          description: 'This is an Oblivion modding requirement - leave it enabled.',
-        }));
+    for (const req of requirements) {
+      const mod: types.IMod = await req.findMod(api);
+      const archiveId = mod?.archiveId ?? (await req.findDownloadId?.(api));
+      // const isRequired = await req.isRequired(api);
+      const isRequired = true;
+
+      if (force !== true && (!isRequired || !!mod || !!archiveId)) {
+        // If the requirement is not required, or we already have it, skip it.
         continue;
       }
-      if (req?.modId !== undefined) {
+
+      if (req.modId !== undefined && !archiveId) {
         await downloadNexus(api, req);
-      } else {
+      } else if (req.githubUrl != undefined) {
+        let versionMismatch = false;
+        const asset = await getLatestGithubReleaseAsset(api, req);
+        const versionMatch = !!req.fileArchivePattern ? req.fileArchivePattern.exec(asset.name) : [asset.name, asset.release.tag_name];
+        const latestVersion = versionMatch[1];
+        const coercedVersion = util.semverCoerce(latestVersion, { includePrerelease: true });
+        const mod = await req.findMod(api);
+        if (!!mod && req.resolveVersion && force !== true) {
+          // Ensure it's the right version.
+          const version = await req.resolveVersion(api);
+          if (!semver.satisfies(`^${coercedVersion.version}`, version, { includePrerelease: true }) && coercedVersion.version !== version) {
+            versionMismatch = true;
+            batchActions.push(actions.setModEnabled(profileId, mod.id, false));
+          } else {
+            continue;
+          }
+        }
+        else if (!versionMismatch && force !== true && mod?.id !== undefined) {
+          batchActions.push(actions.setModEnabled(profileId, mod.id, true));
+          batchActions.push(actions.setModAttributes(GAME_ID, mod.id, {
+            customFileName: req.userFacingName,
+            version: coercedVersion.version,
+            description: 'This is an Oblivion modding requirement - leave it enabled.',
+          }));
+          continue;
+        }
+
         const dlId = req.findDownloadId(api);
         if (!versionMismatch && !force && dlId) {
           await installDownload(api, dlId, req.userFacingName);
@@ -200,13 +205,16 @@ export async function getLatestGithubReleaseAsset(api: types.IExtensionApi, requ
     }
   }
   try {
+    if (!requirement.githubUrl) {
+      return null;
+    }
     const response = await axios.get(`${requirement.githubUrl}/releases`);
     const resHeaders = response.headers;
     const callsRemaining = parseInt(util.getSafe(resHeaders, ['x-ratelimit-remaining'], '0'), 10);
     if ([403, 404].includes(response?.status) && (callsRemaining === 0)) {
-        const resetDate = parseInt(util.getSafe(resHeaders, ['x-ratelimit-reset'], '0'), 10);
-        log('info', 'GitHub rate limit exceeded', { reset_at: (new Date(resetDate)).toString() });
-        return Promise.reject(new util.ProcessCanceled('GitHub rate limit exceeded'));
+      const resetDate = parseInt(util.getSafe(resHeaders, ['x-ratelimit-reset'], '0'), 10);
+      log('info', 'GitHub rate limit exceeded', { reset_at: (new Date(resetDate)).toString() });
+      return Promise.reject(new util.ProcessCanceled('GitHub rate limit exceeded'));
     }
     if (response.status === 200) {
       const releases: IGitHubRelease[] = response.data.filter((release: IGitHubRelease) => preRelease || !release.prerelease);
@@ -217,7 +225,7 @@ export async function getLatestGithubReleaseAsset(api: types.IExtensionApi, requ
   } catch (error) {
     api!.showErrorNotification(
       'Error fetching the latest release url for {{reqName}}',
-      error, { allowReport: false, replace: { reqName: requirement.assemblyFileName } });
+      error, { allowReport: false, replace: { reqName: requirement.userFacingName } });
   }
 
   return null;

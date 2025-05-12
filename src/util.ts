@@ -1,19 +1,22 @@
 /* eslint-disable */
-import { getFileVersion } from 'exe-version';
+import { getProductVersion } from 'exe-version';
 import path from 'path';
 import semver from 'semver';
 import turbowalk, { IWalkOptions, IEntry } from 'turbowalk';
-import { fs, log, selectors, types, util } from 'vortex-api';
+import { actions, fs, log, selectors, types, util } from 'vortex-api';
 import {  parseStringPromise } from 'xml2js';
 
 import { BINARIES_PATH, GAME_ID, NOTIF_ID_BP_MODLOADER_DISABLED,
   MOD_TYPE_LUA, NOTIF_ID_UE4SS_UPDATE, XBOX_APP_X_MANIFEST,
   DATA_PATH, NATIVE_PLUGINS, GAMEBRYO_PLUGIN_EXTENSIONS, EXTENSION_REQUIREMENTS,
-  DIALOG_ID_RESET_PLUGINS_FILE,
-  NATIVE_PLUGINS_EXCLUDED
+  DIALOG_ID_RESET_PLUGINS_FILE, NATIVE_PLUGINS_EXCLUDED, DEBUG_ENABLED, obseRequirement,
+  TOOL_ID_OBSE64,
+  OBSE64_EXECUTABLE
 } from './common';
 
-import { IExtensionRequirement, LoadOrderManagementType } from './types';
+import { IExtensionRequirement, IPluginEntry, LoadOrderManagementType } from './types';
+import { getBinariesPath } from './modTypes';
+import { is } from 'bluebird';
 
 export function isGameActive(api: types.IExtensionApi): boolean {
   const state = api.getState();
@@ -28,6 +31,21 @@ export const lootSortingAllowed = (api: types.IExtensionApi) => {
   // return appVersion === '0.0.1' || semver.satisfies(util.semverCoerce(appVersion), CONSTRAINT_LOOT_FUNCTIONALITY);
 }
 
+export const trySetPrimaryTool = async (api: types.IExtensionApi) => {
+  const state = api.getState();
+  const discovery = selectors.discoveryByGame(state, GAME_ID);
+  if (!DEBUG_ENABLED && discovery?.store === 'xbox') {
+    return Promise.resolve();
+  } else {
+    await api.emitAndAwait('discover-tools', GAME_ID);
+    const obse64 = obseRequirement.findMod(api);
+    const primaryTool = util.getSafe(api.getState(), ['settings', 'interface', 'primaryTool', GAME_ID], undefined);
+    if (obse64 && !primaryTool) {
+      api.store.dispatch(actions.setPrimaryTool(GAME_ID, TOOL_ID_OBSE64));
+    }
+  }
+}
+
 export function resolveUE4SSPath(api: types.IExtensionApi): string {
   const state = api.getState();
   const discovery = selectors.discoveryByGame(state, GAME_ID);
@@ -38,7 +56,7 @@ export function resolveUE4SSPath(api: types.IExtensionApi): string {
 export function resolveRequirements(api: types.IExtensionApi): IExtensionRequirement[] {
   const state = api.getState();
   const discovery = selectors.discoveryByGame(state, GAME_ID);
-  return EXTENSION_REQUIREMENTS[discovery.store] ?? EXTENSION_REQUIREMENTS.steam;
+  return EXTENSION_REQUIREMENTS[discovery?.store] ?? EXTENSION_REQUIREMENTS.steam;
 }
 
 export async function resolveVersionByPattern(api: types.IExtensionApi, requirement: IExtensionRequirement): Promise<string> {
@@ -178,7 +196,7 @@ export async function getGameVersionAsync(api: types.IExtensionApi): Promise<str
     const game = util.getGame(GAME_ID);
     const exePath = path.join(discovery.path, discovery.executable || game.executable());
     try {
-      const version = await getFileVersion(exePath);
+      const version = await getProductVersion(exePath);
       return Promise.resolve(version);
     } catch (err) {
       return Promise.reject(new util.NotFound(exePath));
@@ -339,8 +357,8 @@ export function isModEnabled(api: types.IExtensionApi, modId: string) {
     return util.getSafe(profile, ['modState', modId, 'enabled'], false);
   };
 
-export function isPluginInvalid(api: types.IExtensionApi, plugin: string, mod: types.IMod, isInDataFolder: (name: string) => boolean) {
-    if (isPluginExcluded(plugin)) {
+export function isPluginInvalid(api: types.IExtensionApi, pluginEntry: IPluginEntry, mod: types.IMod, isInDataFolder: (name: string) => boolean) {
+    if (isPluginExcluded(pluginEntry.pluginName)) {
       return true;
     }
     const state = api.getState();
@@ -350,29 +368,36 @@ export function isPluginInvalid(api: types.IExtensionApi, plugin: string, mod: t
     }
 
     return mod !== undefined
-      ? isModEnabled(api, mod.id) && !isInDataFolder(plugin)
-      : !isInDataFolder(plugin);
+      ? isModEnabled(api, mod.id) && !isInDataFolder(pluginEntry.pluginName)
+      : !isInDataFolder(pluginEntry.pluginName);
   }
 
-export async function generateLoadOrderEntry(api: types.IExtensionApi, filePath: string, isInDataFolder: (pluginName: string) => boolean): Promise<types.ILoadOrderEntry> {
-  const plugin = path.basename(filePath);
-  const name = plugin.replace(/\#/g, '');
-  const mod = await findModByFile(api, name);
-  const isInvalid = isPluginInvalid(api, name, mod, isInDataFolder);
-  const enabled = !plugin.startsWith('#');
-  const loEntry: types.ILoadOrderEntry = {
-    enabled: enabled && !isInvalid,
-    id: name,
-    name: name,
-    modId: mod?.id,
-    locked: isInvalid,
-  }
-  return loEntry
+export async function generateLoadOrderEntry(
+  api: types.IExtensionApi,
+  pluginEntry: IPluginEntry,
+  isInDataFolder?: (pluginName: string) => boolean): Promise<types.ILoadOrderEntry> {
+    isInDataFolder = isInDataFolder || (() => true);
+    const { enabled, pluginName } = pluginEntry;
+    const name = pluginName.replace(/\#/g, '');
+    const mod = await findModByFile(api, name);
+    const isInvalid = isPluginInvalid(api, pluginEntry, mod, isInDataFolder);
+    const loEntry: types.ILoadOrderEntry = {
+      enabled: enabled && !isInvalid,
+      id: name,
+      name: name,
+      modId: mod?.id,
+      locked: isInvalid,
+    }
+    return loEntry;
 }
 
 export async function parsePluginsFile(api: types.IExtensionApi, isInDataFolder: (pluginName: string) => boolean): Promise<types.ILoadOrderEntry[]> {
   const currentLO = await deserializePluginsFile(api);
-  return Promise.all(currentLO.map(async (entry) => generateLoadOrderEntry(api, entry, isInDataFolder)));
+  return Promise.all(currentLO.map(async (line) => {
+    const enabled = line.trim().length > 0 && !line.startsWith('#');
+    const pluginName = line.replace(/\#/g, '');
+    return generateLoadOrderEntry(api, { pluginName, enabled }, isInDataFolder);
+  }));
 }
 
 export async function deserializePluginsFile(api: types.IExtensionApi): Promise<string[]> {

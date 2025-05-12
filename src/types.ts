@@ -9,6 +9,11 @@ export interface IUE4SSLuaModEntry {
   mod_enabled: boolean;
 }
 
+export interface IPluginEntry {
+  pluginName: string;
+  enabled: boolean;
+}
+
 export interface IPakFileInfo {
   fileName: string;
   offset: number;

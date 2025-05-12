@@ -5,14 +5,11 @@ import { fs, types, selectors, util } from 'vortex-api';
 
 import { GAME_ID, NS, NOTIF_ID_BP_MODLOADER_DISABLED,
   UE4SS_ENABLED_FILE, UE4SS_SETTINGS_FILE, UE4SS_MEMBER_VARIABLE_LAYOUT_FILE,
-  NOTIF_ID_UE4SS_UPDATE,
-  NOTIF_ID_UE4SS_VARIABLE_LAYOUT,
-  NOTIF_ID_INCORRECT_NATIVE_ORDER,
-  NATIVE_PLUGINS,
+  NOTIF_ID_UE4SS_VARIABLE_LAYOUT, NATIVE_PLUGINS, NOTIF_ID_NATIVE_PLUGINS_ISSUES,
 } from './common';
 import { EventType } from './types';
 import { findModByFile, forceRefresh, isNativeLoadOrderJumbled, parsePluginsFile, resolveRequirements, resolveUE4SSPath, serializePluginsFile } from './util';
-import { download, getLatestGithubReleaseAsset } from './downloader';
+import { download } from './downloader';
 
 export const testLoadOrderChangeDebouncer = new util.Debouncer((api: types.IExtensionApi, loadOrder: types.LoadOrder) => {
   return testLoadOrderChange(api, loadOrder);
@@ -23,12 +20,39 @@ async function testLoadOrderChange(api: types.IExtensionApi, loadOrder: types.Lo
     return;
   }
 
+  const nativePlugins = loadOrder.filter(entry => NATIVE_PLUGINS.includes(entry.id.toLowerCase()));
+  const allNativePluginsEnabled = nativePlugins.every(entry => entry.enabled);
+  if (!allNativePluginsEnabled) {
+    api.sendNotification({
+      message: 'Native plugins are disabled, this may cause issues!',
+      type: 'warning',
+      allowSuppress: false,
+      id: NOTIF_ID_NATIVE_PLUGINS_ISSUES,
+      actions: [ { title: 'Fix', action: async (dismiss) => {
+        dismiss();
+        const newLO = loadOrder.map(entry => {
+          const isNativePlugin = NATIVE_PLUGINS.includes(entry.id.toLowerCase());
+          return isNativePlugin ? { ...entry, enabled: true } : entry;
+        });
+
+        await serializePluginsFile(api, newLO);
+        forceRefresh(api);
+        api.sendNotification({
+          message: 'Native plugins order has been corrected',
+          type: 'success',
+          displayMS: 3000,
+        });
+      }}]
+    });
+    return;
+  }
+
   if (isNativeLoadOrderJumbled(loadOrder)) {
     api.sendNotification({
       message: 'Native plugins are in an incorrect order!',
       type: 'warning',
       allowSuppress: false,
-      id: NOTIF_ID_INCORRECT_NATIVE_ORDER,
+      id: NOTIF_ID_NATIVE_PLUGINS_ISSUES,
       actions: [ { title: 'Fix', action: async (dismiss) => {
         dismiss();
         const sortedPlugins = [...loadOrder];
@@ -45,10 +69,10 @@ async function testLoadOrderChange(api: types.IExtensionApi, loadOrder: types.Lo
           const entry = confirmedNativePlugins[i];
           const index = currentIndexes[i];
           if (index !== -1) {
-            sortedPlugins[index] = entry;
+            sortedPlugins[index] = { ...entry, enabled: true };
           }
         };
-        
+
         await serializePluginsFile(api, sortedPlugins);
         forceRefresh(api);
         api.sendNotification({
@@ -127,57 +151,6 @@ export async function testMemberVariableLayout(api: types.IExtensionApi, eventTy
         }
       }
     ],
-  });
-}
-
-export async function testUE4SSVersion(api: types.IExtensionApi, eventType?: EventType) {
-  const t = api.translate;
-  const requirement = resolveRequirements(api).find(req => req.id === 'ue4ss');
-  const ue4ssMod = await requirement.findMod(api);
-  if (!ue4ssMod) {
-    return;
-  }
-  const currentVersion = await requirement.resolveVersion(api);
-  const latest = await getLatestGithubReleaseAsset(api, requirement);
-  const versionMatch = latest.name.match(/v?(\d+\.\d+\.\d+(-\w+(\.\d+)?)?)/);
-  if (!versionMatch) {
-    throw new Error('Unable to determine version from release asset');
-  }
-  const latestVersion = versionMatch[1];
-  const coercedVersion = util.semverCoerce(latestVersion, { includePrerelease: true});
-  if (coercedVersion.version === currentVersion || semver.satisfies(`^${coercedVersion.version}`, currentVersion, { includePrerelease: true })) {
-    return;
-  }
-
-  const more = (dismiss) => {
-    api.showDialog('question', 'Update UE4SS', {
-      bbcode: t('A new UE4SS update has been released "v{{latestVersion}}" - your modding environment is currently set to "v{{currentVersion}}".[br][/br][br][/br]'
-              + 'Would you like to update? (if your modding environment is functioning correctly, there may be no reason to update.)', { replace: { currentVersion, latestVersion: coercedVersion.version } }),
-    }, [
-      {
-        label: 'Download', default: true, action: () => {
-          download(api, [requirement]);
-          dismiss();
-        }
-      },
-      { label: 'Close', action: () => dismiss() }
-    ])
-  }
-
-  api.sendNotification({
-    message: 'UE4SS update available',
-    type: 'warning',
-    allowSuppress: true,
-    id: NOTIF_ID_UE4SS_UPDATE,
-    actions: [
-      { title: 'More', action: more },
-      {
-        title: 'Download', action: (dismiss) => {
-          download(api, [requirement], true);
-          dismiss();
-        }
-      }
-    ]
   });
 }
 

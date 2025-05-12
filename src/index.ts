@@ -2,21 +2,25 @@
 import * as _ from 'lodash';
 import path from 'path';
 
-import { fs, log, types, selectors, util } from 'vortex-api';
+import { fs, types, selectors, util } from 'vortex-api';
 
-import { DEFAULT_EXECUTABLE, GAME_ID, IGNORE_CONFLICTS,
+import {
+  DEFAULT_EXECUTABLE, GAME_ID, IGNORE_CONFLICTS,
   PAK_MODSFOLDER_PATH, STEAMAPP_ID, XBOX_ID,
   MOD_TYPE_PAK, MOD_TYPE_LUA, MOD_TYPE_BP_PAK,
   BPPAK_MODSFOLDER_PATH, IGNORE_DEPLOY,
   MOD_TYPE_DATAPATH, NATIVE_PLUGINS, DATA_PATH,
   MOD_TYPE_BINARIES,
+  OBSE64_EXECUTABLE,
+  TOOL_ID_OBSE64,
 } from './common';
 
-import { onCheckModVersion, onDidDeployEvent, onDidPurgeEvent, onGameModeActivated,
-  onModsEnabled, onWillDeployEvent, onWillPurgeEvent, onModsRemoved
+import {
+  onDidDeployEvent, onDidPurgeEvent, onGameModeActivated,
+  onModsEnabled, onWillPurgeEvent, onModsRemoved, onBakeSettings
 } from './eventHandlers';
 
-import { settingsReducer } from './reducers';
+import { sessionReducer, settingsReducer } from './reducers';
 
 import { getStopPatterns } from './stopPatterns';
 import {
@@ -29,13 +33,24 @@ import { installLuaMod, installRootMod, installUE4SSInjector, testLuaMod, testRo
 
 import { migrate } from './migrations';
 
-import { getGameVersionAsync, isGameActive, resetPluginsFile, resolvePluginsFilePath, resolveRequirements, resolveUE4SSPath, serializePluginsFile } from './util';
+import { getGameVersionAsync, isGameActive, trySetPrimaryTool, resetPluginsFile, resolvePluginsFilePath, resolveRequirements, resolveUE4SSPath } from './util';
 import { download } from './downloader';
 
 import OblivionReLoadOrder from './OblivionReLoadOrder'
-import { testLoadOrderChangeDebouncer } from './tests';
 
-const supportedTools: types.ITool[] = [];
+const supportedTools: types.ITool[] = [
+  {
+    id: TOOL_ID_OBSE64,
+    name: 'Oblivion Remastered Script Extender',
+    shortName: 'OBSE64',
+    executable: () => OBSE64_EXECUTABLE,
+    requiredFiles: [
+      OBSE64_EXECUTABLE,
+    ],
+    relative: true,
+    exclusive: true,
+  },
+];
 
 const gameFinderQuery = {
   steam: [{ id: STEAMAPP_ID, prefer: 0 }],
@@ -44,6 +59,7 @@ const gameFinderQuery = {
 
 function main(context: types.IExtensionContext) {
   context.registerReducer(['settings', GAME_ID, 'migrations'], settingsReducer);
+  context.registerReducer(['session', GAME_ID], sessionReducer);
   context.registerGame({
     id: GAME_ID,
     name: 'Oblivion Remastered',
@@ -72,25 +88,25 @@ function main(context: types.IExtensionContext) {
   });
 
   context.registerAction('mod-icons', 300, 'open-ext', {},
-                         'Open Logic Mods Folder', () => {
-    const state = context.api.getState();
-    const discovery = selectors.discoveryByGame(state, GAME_ID);
-    const logicModsPath = path.join(discovery.path, BPPAK_MODSFOLDER_PATH);
-    util.opn(logicModsPath).catch(() => null);
-  }, () => isGameActive(context.api));
+    'Open Logic Mods Folder', () => {
+      const state = context.api.getState();
+      const discovery = selectors.discoveryByGame(state, GAME_ID);
+      const logicModsPath = path.join(discovery.path, BPPAK_MODSFOLDER_PATH);
+      util.opn(logicModsPath).catch(() => null);
+    }, () => isGameActive(context.api));
 
   context.registerAction('mod-icons', 300, 'open-ext', {},
-                         'Open LUA Mods Folder', () => {
-    const state = context.api.getState();
-    const discovery = selectors.discoveryByGame(state, GAME_ID);
-    const ue4ssPath = resolveUE4SSPath(context.api);
-    const openPath = path.join(discovery.path, ue4ssPath, 'Mods');
-    util.opn(openPath).catch(() => null);
-  }, () => isGameActive(context.api));
+    'Open LUA Mods Folder', () => {
+      const state = context.api.getState();
+      const discovery = selectors.discoveryByGame(state, GAME_ID);
+      const ue4ssPath = resolveUE4SSPath(context.api);
+      const openPath = path.join(discovery.path, ue4ssPath, 'Mods');
+      util.opn(openPath).catch(() => null);
+    }, () => isGameActive(context.api));
 
   context.registerAction('mod-icons', 300, 'open-ext', {},
-                         'Open Plugins Folder', () => {
-    util.opn(getDataPath(context.api)).catch(() => null);
+    'Open Plugins Folder', () => {
+      util.opn(getDataPath(context.api)).catch(() => null);
     }, () => isGameActive(context.api));
 
   context.registerAction(
@@ -164,13 +180,11 @@ function main(context: types.IExtensionContext) {
   context.once(() => {
     context.api.events.on('gamemode-activated', onGameModeActivated(context.api));
     context.api.events.on('mods-enabled', onModsEnabled(context.api));
-  
+
     context.api.onAsync('will-remove-mods', onModsRemoved(context.api));
-    context.api.onAsync('will-deploy', onWillDeployEvent(context.api));
     context.api.onAsync('did-deploy', onDidDeployEvent(context.api));
+    context.api.onAsync('bake-settings', onBakeSettings(context.api));
     context.api.onAsync('will-purge', onWillPurgeEvent(context.api));
-    context.api.onAsync('did-purge', onDidPurgeEvent(context.api));
-    context.api.onAsync('check-mods-version', onCheckModVersion(context.api));
   });
 
   return true;
@@ -182,10 +196,12 @@ const setup = (api: types.IExtensionApi) => async (discovery: types.IDiscoveryRe
   // Make sure the folders exist
   const ensurePath = (filePath: string) => fs.ensureDirWritableAsync(path.join(discovery.path, filePath));
   try {
+    const requirements = resolveRequirements(api);
     const UE4SSPath = resolveUE4SSPath(api);
     await Promise.all([path.join(UE4SSPath, 'Mods'), PAK_MODSFOLDER_PATH, BPPAK_MODSFOLDER_PATH].map(ensurePath));
     await migrate(api);
-    await download(api, resolveRequirements(api));
+    await download(api, requirements);
+    await trySetPrimaryTool(api);
   } catch (err) {
     api.showErrorNotification('Failed to setup extension', err);
     return;
@@ -202,13 +218,13 @@ async function requiresLauncher(gamePath: string, store?: string) {
       },
     });
   } else if (store === 'steam') {
-      return Promise.resolve({
-        launcher: 'steam',
-        addInfo: {
-          appId: STEAMAPP_ID,
-          parameters: [],
-        }
-      });
+    return Promise.resolve({
+      launcher: 'steam',
+      addInfo: {
+        appId: STEAMAPP_ID,
+        parameters: [],
+      }
+    });
   } else {
     return Promise.resolve(undefined);
   }

@@ -1,8 +1,9 @@
 /* eslint-disable */
 import path from 'path';
-import { types } from 'vortex-api';
+import { fs, types, util } from 'vortex-api';
 import { ExtensionRequirements, IExtensionRequirement } from './types';
 import { findModByFile, findDownloadIdByPattern, getEnabledMods, resolveVersion } from './util';
+import { getBinariesPath } from './modTypes';
 
 export const DEBUG_ENABLED = false;
 export const DEBUG_APP_VERSION = '1.12.0';
@@ -13,12 +14,13 @@ export const NOTIF_ID_BP_MODLOADER_DISABLED = `notif-${GAME_ID}-bp-modloader-dis
 export const NOTIF_ID_REQUIREMENTS = `notif-${GAME_ID}-requirements-download-notification`;
 export const NOTIF_ID_UE4SS_UPDATE = `notif-${GAME_ID}-ue4ss-version-update`;
 export const NOTIF_ID_UE4SS_VARIABLE_LAYOUT = `notif-${GAME_ID}-ue4ss-member-variable-layout`
-export const NOTIF_ID_INCORRECT_NATIVE_ORDER = `notif-${GAME_ID}-incorrect-native-order`;
+export const NOTIF_ID_NATIVE_PLUGINS_ISSUES = `notif-${GAME_ID}-native-plugins-issues`;
 
 export const DIALOG_ID_RESET_PLUGINS_FILE = `dialog-${GAME_ID}-reset-plugins-file`;
 
 export const DEFAULT_EXECUTABLE = 'OblivionRemastered.exe';
 export const XBOX_EXECUTABLE = 'gamelaunchhelper.exe';
+export const OBSE64_EXECUTABLE = 'obse64_loader.exe';
 
 export const XBOX_APP_X_MANIFEST = 'appxmanifest.xml';
 
@@ -58,6 +60,8 @@ export const TOP_LEVEL_DIRECTORIES = [
   'Engine', MAIN_UE_PATH, 'Resources',
 ];
 
+export const TOOL_ID_OBSE64 = 'tool-obse64';
+
 export const MOD_TYPE_PAK = `${GAME_ID}-pak-modtype`;
 export const MOD_TYPE_LUA = `${GAME_ID}-lua-modtype`;
 export const MOD_TYPE_BP_PAK = `${GAME_ID}-blueprint-modtype`;
@@ -67,14 +71,16 @@ export const MOD_TYPE_BINARIES = `${GAME_ID}-binaries-modtype`;
 
 export const UE_PAK_TOOL_FILENAME = 'UnrealPakTool.zip';
 
+const ue4ssFileArchivePattern = new RegExp(/^UE4SS.*/, 'i');
 export const UE4SSRequirement: IExtensionRequirement = {
   id: 'ue4ss',
   userFacingName: 'Unreal Engine Scripting System',
   modType: '',
   assemblyFileName: UE4SS_DWMAPI,
-  githubUrl: 'https://api.github.com/repos/UE4SS-RE/RE-UE4SS',
+  modId: 32,
   findMod: (api: types.IExtensionApi) => findModByFile(api, UE4SS_SETTINGS_FILE, '', false),
-  fileArchivePattern: new RegExp(/^UE4SS.*v(\d+\.\d+\.\d+(-\w+(\.\d+)?)?)/, 'i'),
+  findDownloadId: (api: types.IExtensionApi) => findDownloadIdByPattern(api, UE4SSRequirement),
+  fileArchivePattern: ue4ssFileArchivePattern,
   isRequired: async (api: types.IExtensionApi) => {
     const enabledBPMods = getEnabledMods(api, MOD_TYPE_BP_PAK);
     const enabledLuaMods = getEnabledMods(api, MOD_TYPE_LUA);
@@ -89,6 +95,32 @@ export const UE4SSRequirement: IExtensionRequirement = {
   }
 }
 
+const obseFileArchivePattern = new RegExp(/^OBSE64.*\.7z$/, 'i');
+const findOBSE64 = (api: types.IExtensionApi): Promise<types.IMod> => findModByFile(api, 'obse64_loader.exe', BINARIES_PATH, false);
+export const obseRequirement: IExtensionRequirement = {
+  id: 'obse64',
+  userFacingName: 'OBSE64',
+  modType: MOD_TYPE_BINARIES,
+  modId: 282,
+  fileArchivePattern: obseFileArchivePattern,
+  findDownloadId: (api: types.IExtensionApi) => findDownloadIdByPattern(api, obseRequirement),
+  findMod: (api: types.IExtensionApi) => findOBSE64(api),
+  isRequired: async (api: types.IExtensionApi) => {
+    try {
+      const mod = await findOBSE64(api);
+      if (mod) {
+        return false; // OBSE64 is already present
+      }
+      // Check if OBSE64 is already present in the game folder
+      const obseExecFilePath = path.join(getBinariesPath(api), OBSE64_EXECUTABLE);
+      const hasOBSE64 = await fs.statAsync(obseExecFilePath).then(() => true).catch(() => false);
+      return !hasOBSE64;
+    } catch (err) {
+      api.showErrorNotification('Failed to check for OBSE64 installation.', '', err);
+    }
+  }
+}
+
 export const DEFAULT_REQUIREMENTS: IExtensionRequirement[] = [
   { 
     ...UE4SSRequirement,
@@ -98,8 +130,9 @@ export const DEFAULT_REQUIREMENTS: IExtensionRequirement[] = [
 ];
 
 export const EXTENSION_REQUIREMENTS: ExtensionRequirements = {
-  steam: DEFAULT_REQUIREMENTS,
-  xbox: DEFAULT_REQUIREMENTS,
+  steam: [].concat([obseRequirement], DEFAULT_REQUIREMENTS),
+  xbox: DEBUG_ENABLED ? [].concat([obseRequirement], DEFAULT_REQUIREMENTS) : DEFAULT_REQUIREMENTS,
+  // xbox: DEFAULT_REQUIREMENTS,
 };
 
 export const PLUGINS_TXT = path.join(DATA_PATH, 'plugins.txt');
