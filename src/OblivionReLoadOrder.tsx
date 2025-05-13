@@ -5,8 +5,7 @@ import { fs, log, selectors, types, util } from 'vortex-api';
 
 import { DATA_PATH, GAME_ID, GAMEBRYO_PLUGIN_EXTENSIONS } from './common';
 import { walkPath, serializePluginsFile, getManagementType,
-  generateLoadOrderEntry, parsePluginsFile,
-  forceRefresh
+  generateLoadOrderEntry, parsePluginsFile, forceRefresh
 } from './util';
 
 import { InfoPanel } from './views/InfoPanel';
@@ -36,8 +35,20 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
   }
 
   public async serializeLoadOrder(loadOrder: types.LoadOrder, prev: types.LoadOrder): Promise<void> {
-    return serializePluginsFile(this.mApi, loadOrder)
-      .then(() => testLoadOrderChangeDebouncer.schedule(undefined, this.mApi, loadOrder));
+    const currIsAlphabeticallySorted = this.isSortedAlphabetically(loadOrder);
+    let serializeableLoadOrder = [...loadOrder];
+    if (currIsAlphabeticallySorted) {
+      // LO should never be sorted alphabetically, try to use prev instead to avoid
+      //  breaking the load order.
+      // TODO: this is a temporary fix, we should find a better way to handle this in the core app.
+      log('warn', 'Load order entries are not sorted alphabetically.');
+      const prevIsAlphabeticallySorted = this.isSortedAlphabetically(prev);
+      if (!prevIsAlphabeticallySorted) {
+        serializeableLoadOrder = [...prev];
+      }
+    }
+    return serializePluginsFile(this.mApi, serializeableLoadOrder)
+      .then(() => testLoadOrderChangeDebouncer.schedule(undefined, this.mApi, serializeableLoadOrder));
   }
 
   public async deserializeLoadOrder(): Promise<types.LoadOrder> {
@@ -50,13 +61,24 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
     // Find out which plugins are actually deployed to the data folder.
     const fileEntries = await walkPath(path.join(discovery.path, DATA_PATH), { recurse: false });
     const confirmedPlugins = fileEntries.filter(file => GAMEBRYO_PLUGIN_EXTENSIONS.includes(path.extname(file.filePath)));
-    
     const isInDataFolder = (plugin: string) =>
       confirmedPlugins.some(file => path.basename(file.filePath).toLowerCase() === plugin.toLowerCase());
 
-    const loadOrderEntries = await Promise.all(confirmedPlugins.map(confirmedPlugin =>
-      generateLoadOrderEntry(this.mApi, confirmedPlugin.filePath, () => true)));
     const currentLO = await parsePluginsFile(this.mApi, isInDataFolder);
+    const confirmedPluginsWithState = confirmedPlugins.map(plugin => {
+      const pluginName = path.basename(plugin.filePath).toLowerCase();
+      const pluginInCurrentLO = currentLO.find(entry => entry.name.toLowerCase() === pluginName);
+      return {
+        ...plugin,
+        enabled: pluginInCurrentLO ? pluginInCurrentLO.enabled : true,
+      };
+    });
+
+    const loadOrderEntries = await Promise.all(confirmedPluginsWithState.map(confirmedPlugin =>
+      generateLoadOrderEntry(this.mApi, {
+        pluginName: path.basename(confirmedPlugin.filePath),
+        enabled: confirmedPlugin.enabled,
+      })));
     loadOrderEntries.sort((a, b) => {
       const indexA = currentLO.findIndex(entry => entry.id === a.id);
       const indexB = currentLO.findIndex(entry => entry.id === b.id);
@@ -102,6 +124,13 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
 
   public condition(): boolean {
     return (getManagementType(this.mApi) === 'dnd');
+  }
+
+  private isSortedAlphabetically(loadOrder: types.LoadOrder): boolean {
+    return loadOrder.every((entry, index, array) => {
+      if (index === 0) return true;
+      return array[index - 1].name.toLowerCase() <= entry.name.toLowerCase();
+    });
   }
 }
 

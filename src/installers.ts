@@ -125,6 +125,7 @@ export const installLuaMod = (api: types.IExtensionApi) => async (files: string[
 //#region root mod
 export async function testRootMod(files: string[], gameId: string): Promise<types.ISupportedResult> {
   const rightGame = gameId === GAME_ID;
+  const hasModuleConfig = files.some(file => path.basename(file).toLowerCase() === 'moduleconfig.xml');
   const runThroughPatterns = (patterns: string[]) => {
     for (const pattern of patterns) {
       const regex = new RegExp(pattern, 'i');
@@ -138,7 +139,7 @@ export async function testRootMod(files: string[], gameId: string): Promise<type
     return false;
   };
   const rightStructure = runThroughPatterns(getTopLevelPatterns(true));
-  return Promise.resolve({ supported: rightGame && rightStructure, requiredFiles: [] });
+  return Promise.resolve({ supported: rightGame && rightStructure && !hasModuleConfig, requiredFiles: [] });
 }
 
 export const installRootMod = (api: types.IExtensionApi) => (files: string[], destinationPath: string, gameId: string): Promise<types.IInstallResult> => {

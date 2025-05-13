@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.1.4 - 2025-05-12
+
+- Added OBSE64 as a requirement for all game variants besides xbox.
+- OBSE64 will default to primary tool when found.
+- UE4SS requirement is now set to https://www.nexusmods.com/oblivionremastered/mods/32
+- Native plugins order test will now check for plugin state too.
+- Removed unnecessary UE4SS tests.
+- Steam variant will now use the product version of the game executable when resolving the game version.
+- Fixed root mod installer hijacking fomod installations.
+- Fixed inconsistent plugin state in load order page when purging/deploying.
+
 ## 0.1.3 - 2025-04-25
 
 - Improved load order serialization/deserialization process.

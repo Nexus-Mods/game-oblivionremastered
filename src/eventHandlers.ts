@@ -1,11 +1,11 @@
-import path from 'path';
-import { fs, log, selectors, types, util } from 'vortex-api'
+import { log, selectors, types, util } from 'vortex-api'
 
 import { GAME_ID } from './common';
 import { onAddMod, onRemoveMod } from './modsFile';
-import { testUE4SSVersion, testBluePrintModManager, testLoadOrderChangeDebouncer } from './tests'
-import { dismissNotifications, isLuaMod, parsePluginsFile, resolvePluginsFilePath, resolveRequirements } from './util';
+import { testBluePrintModManager, testLoadOrderChangeDebouncer } from './tests'
+import { dismissNotifications, isLuaMod, parsePluginsFile, resolveRequirements, trySetPrimaryTool } from './util';
 import { download } from './downloader';
+import { applyLoadOrderRedundancy, setLoadOrderRedundancy } from './actions';
 
 //#region API event handlers
 export const onGameModeActivated = (api: types.IExtensionApi) => async (gameMode: string) => {
@@ -15,7 +15,6 @@ export const onGameModeActivated = (api: types.IExtensionApi) => async (gameMode
   }
 
   try {
-    await testUE4SSVersion(api);
     await testBluePrintModManager(api, 'gamemode-activated');
     const loadOrder = await parsePluginsFile(api, () => true);
     testLoadOrderChangeDebouncer.schedule(undefined, api, loadOrder);
@@ -27,6 +26,20 @@ export const onGameModeActivated = (api: types.IExtensionApi) => async (gameMode
   }
 }
 
+export const onBakeSettings = (api: types.IExtensionApi) => async (gameMode: string): Promise<void> => {
+  if (gameMode !== GAME_ID) {
+    return Promise.resolve();
+  }
+  const profileId = selectors.lastActiveProfileForGame(api.getState(), GAME_ID);
+  const unappliedLORedundancy = util.getSafe(api.getState(), ['session', GAME_ID, 'redundancies', profileId], []);
+  if (unappliedLORedundancy.length > 0) {
+    applyLoadOrderRedundancy(api, profileId);
+  }
+  const currentLoadOrder = util.getSafe(api.getState(), ['persistent', 'loadOrder', profileId], []);
+  const loadOrder = unappliedLORedundancy.length > 0 ? unappliedLORedundancy : (currentLoadOrder ?? await parsePluginsFile(api, () => true));
+  testLoadOrderChangeDebouncer.schedule(undefined, api, loadOrder);
+}
+
 export const onDidDeployEvent = (api: types.IExtensionApi) =>
   async (profileId: string, deployment: types.IDeploymentManifest): Promise<void> => {
     const state = api.getState();
@@ -35,14 +48,12 @@ export const onDidDeployEvent = (api: types.IExtensionApi) =>
     if (gameId !== GAME_ID) {
       return Promise.resolve();
     }
-
     try {
       await download(api, resolveRequirements(api));
+      await trySetPrimaryTool(api)
       await testBluePrintModManager(api, 'did-deploy');
       // await testMemberVariableLayout(api, 'did-deploy');
       await onDidDeployLuaEvent(api, profile);
-      const loadOrder = await parsePluginsFile(api, () => true);
-      testLoadOrderChangeDebouncer.schedule(undefined, api, loadOrder);
     } catch (err) {
       log('warn', 'failed to test BluePrint Mod Manager', err);
     }
@@ -57,17 +68,8 @@ export const onWillPurgeEvent = (api: types.IExtensionApi) => async (profileId: 
     return;
   }
 
-  // This is a temporary fix for 1.14 not restoring the plugins.txt file correctly.
-  //  This should be removed once the issue is fixed in the core.
-  // TODO: Remove this once the core issue is fixed.
-  const pluginsFilePath = await resolvePluginsFilePath(api);
-  const tempPluginsFile = path.join(util.getVortexPath('temp'), GAME_ID, profileId, path.basename(pluginsFilePath));
-  try {
-    await fs.ensureDirWritableAsync(path.dirname(tempPluginsFile));
-    await fs.copyAsync(pluginsFilePath, tempPluginsFile, { overwrite: true });
-  } catch (err) {
-    log('warn', 'failed to copy plugins.txt', err);
-  }
+  const loadOrder = await parsePluginsFile(api, () => true);
+  api.store.dispatch(setLoadOrderRedundancy(profileId, loadOrder));
 
   return;
 }
@@ -87,49 +89,6 @@ export const onDidPurgeEvent = (api: types.IExtensionApi) => async (profileId: s
   }
 
   return;
-}
-
-export const onWillDeployEvent = (api: types.IExtensionApi) => async (profileId: any, deployment: types.IDeploymentManifest): Promise<void> => {
-  const state = api.getState();
-  const profile = selectors.activeProfile(state);
-
-  if (profile?.gameId !== GAME_ID) {
-    return;
-  }
-
-  const discovery = selectors.discoveryByGame(state, GAME_ID);
-  if (!discovery?.path || discovery?.store !== 'xbox') {
-    // Game not discovered or not Xbox? bail.
-    return;
-  }
-
-  // Check if we have a backup for the plugins.txt file - if we do - restore it.
-  //  This is a temporary fix for 1.14 not restoring the plugins.txt file correctly.
-  //  This should be removed once the issue is fixed in the core.
-  // TODO: Remove this once the core issue is fixed.
-  const pluginsFilePath = await resolvePluginsFilePath(api);
-  const tempPluginsFile = path.join(util.getVortexPath('temp'), GAME_ID, profileId, path.basename(pluginsFilePath));
-  const exists = await fs.statAsync(tempPluginsFile).then(() => true).catch(() => false);
-  if (exists) {
-    try {
-      await fs.copyAsync(tempPluginsFile, pluginsFilePath, { overwrite: true });
-      await fs.removeAsync(tempPluginsFile);
-    } catch (err) {
-      log('warn', 'failed to restore plugins.txt', err);
-    }
-  }
-}
-
-export const onCheckModVersion = (api: types.IExtensionApi) => async (gameId: string, mods: types.IMod[], forced?: boolean) => {
-  const profile = selectors.activeProfile(api.getState());
-  if (profile.gameId !== GAME_ID || gameId !== GAME_ID) {
-    return;
-  }
-  try {
-    await testUE4SSVersion(api);
-  } catch (err) {
-    log('warn', 'failed to test UE4SS version', err);
-  }
 }
 
 export const onModsEnabled = (api: types.IExtensionApi) => async (modIds: string[], enabled: boolean, gameId: string) => {

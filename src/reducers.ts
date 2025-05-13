@@ -1,5 +1,5 @@
 import { types, util } from 'vortex-api';
-import { setOblivionMigrationVersion } from './actions';
+import { setOblivionMigrationVersion, setLoadOrderRedundancy } from './actions';
 
 export const settingsReducer: types.IReducerSpec = {
   reducers: {
@@ -10,3 +10,13 @@ export const settingsReducer: types.IReducerSpec = {
   },
   defaults: {},
 };
+
+export const sessionReducer: types.IReducerSpec = {
+  reducers: {
+    [setLoadOrderRedundancy as any]: (state, payload) => {
+      const { loadOrder, profileId } = payload;
+      return util.setSafe(state, ['redundancies', profileId], loadOrder);
+    },
+  },
+  defaults: {},
+}
