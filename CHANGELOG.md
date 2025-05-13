@@ -10,10 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - OBSE64 will default to primary tool when found.
 - UE4SS requirement is now set to https://www.nexusmods.com/oblivionremastered/mods/32
 - Native plugins order test will now check for plugin state too.
-- Removed unecessary UE4SS tests.
+- Removed unnecessary UE4SS tests.
 - Steam variant will now use the product version of the game executable when resolving the game version.
 - Fixed root mod installer hijacking fomod installations.
-- Fixed incosistent plugin state in load order page when purging/deploying.
+- Fixed inconsistent plugin state in load order page when purging/deploying.
 
 ## 0.1.3 - 2025-04-25
 
