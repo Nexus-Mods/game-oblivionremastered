@@ -36,6 +36,9 @@ export const trySetPrimaryTool = async (api: types.IExtensionApi) => {
   } else {
     await api.emitAndAwait('discover-tools', GAME_ID);
     const obse64 = obseRequirement.findMod(api);
+    if (!obse64) {
+      return Promise.resolve();
+    }
     const primaryTool = util.getSafe(api.getState(), ['settings', 'interface', 'primaryTool', GAME_ID], undefined);
     if (obse64 && !primaryTool) {
       api.store.dispatch(actions.setPrimaryTool(GAME_ID, TOOL_ID_OBSE64));
