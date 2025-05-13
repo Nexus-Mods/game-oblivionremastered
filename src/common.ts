@@ -132,7 +132,6 @@ export const DEFAULT_REQUIREMENTS: IExtensionRequirement[] = [
 export const EXTENSION_REQUIREMENTS: ExtensionRequirements = {
   steam: [].concat([obseRequirement], DEFAULT_REQUIREMENTS),
   xbox: DEBUG_ENABLED ? [].concat([obseRequirement], DEFAULT_REQUIREMENTS) : DEFAULT_REQUIREMENTS,
-  // xbox: DEFAULT_REQUIREMENTS,
 };
 
 export const PLUGINS_TXT = path.join(DATA_PATH, 'plugins.txt');

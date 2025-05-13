@@ -25,7 +25,7 @@ export async function download(api: types.IExtensionApi, requirements: IExtensio
     for (const req of requirements) {
       const mod: types.IMod = await req.findMod(api);
       const archiveId = mod?.archiveId ?? (await req.findDownloadId?.(api));
-      const isRequired = DEBUG_ENABLED ?? (await req.isRequired(api));
+      const isRequired = DEBUG_ENABLED || (await req.isRequired(api));
 
       if (force !== true && (!isRequired || !!mod || !!archiveId)) {
         // If the requirement is not required, or we already have it, skip it.
