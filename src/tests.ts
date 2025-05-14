@@ -23,7 +23,7 @@ async function testLoadOrderChange(api: types.IExtensionApi, loadOrder: types.Lo
   const allNativePluginsEnabled = nativePlugins.every(entry => entry.enabled);
   if (!allNativePluginsEnabled) {
     api.sendNotification({
-      message: 'Native plugins are disabled, this may cause issues!',
+      message: 'Native plugins are disabled, this may cause crashes!',
       type: 'warning',
       allowSuppress: false,
       id: NOTIF_ID_NATIVE_PLUGINS_ISSUES,
@@ -37,7 +37,7 @@ async function testLoadOrderChange(api: types.IExtensionApi, loadOrder: types.Lo
         await serializePluginsFile(api, newLO);
         forceRefresh(api);
         api.sendNotification({
-          message: 'Native plugins order has been corrected',
+          message: 'All native plugins have been enabled',
           type: 'success',
           displayMS: 3000,
         });

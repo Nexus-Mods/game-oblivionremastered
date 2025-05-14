@@ -9,6 +9,34 @@ import axios from 'axios';
 import { DEBUG_ENABLED, GAME_ID, NOTIF_ID_REQUIREMENTS } from './common';
 import { IExtensionRequirement, IGitHubAsset, IGitHubRelease } from './types';
 
+async function raiseConsentNotification(api: types.IExtensionApi, requirement: IExtensionRequirement) {
+  const notificationId = `notif-${GAME_ID}-${requirement.id}-requirement-consent`;
+  return new Promise<void>((resolve, reject) => {
+    api.sendNotification({
+      id: notificationId,
+      message: `"${requirement.userFacingName}" is not installed. Would you like to install it?`,
+      type: 'warning',
+      allowSuppress: true,
+      actions: [
+        {
+          title: 'Download & Install',
+          action: (dismiss) => {
+            dismiss();
+            return resolve();
+          },
+        },
+        {
+          title: 'Close',
+          action: (dismiss) => {
+            dismiss();
+            return reject(new util.UserCanceled())
+          },
+        },
+      ],
+    });
+  });
+}
+
 
 export async function download(api: types.IExtensionApi, requirements: IExtensionRequirement[], force?: boolean) {
   api.sendNotification({
@@ -30,6 +58,12 @@ export async function download(api: types.IExtensionApi, requirements: IExtensio
       if (force !== true && (!isRequired || !!mod || !!archiveId)) {
         // If the requirement is not required, or we already have it, skip it.
         continue;
+      }
+
+      try {
+        await raiseConsentNotification(api, req);
+      } catch (err) {
+        continue; 
       }
 
       if (req.modId !== undefined && !archiveId) {

@@ -6,6 +6,7 @@ import { testBluePrintModManager, testLoadOrderChangeDebouncer } from './tests'
 import { dismissNotifications, isLuaMod, parsePluginsFile, resolveRequirements, trySetPrimaryTool } from './util';
 import { download } from './downloader';
 import { applyLoadOrderRedundancy, setLoadOrderRedundancy } from './actions';
+import OblivionReLoadOrder from './OblivionReLoadOrder';
 
 //#region API event handlers
 export const onGameModeActivated = (api: types.IExtensionApi) => async (gameMode: string) => {
@@ -103,6 +104,7 @@ export const onModsRemoved = (api: types.IExtensionApi) => async (gameId: string
   if (gameId !== GAME_ID) {
     return;
   }
+  OblivionReLoadOrder.suppressValidation = true;
   for (const modId of modIds) {
     await onRemoveMod(api, modId);
   }
