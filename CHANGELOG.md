@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.1.5 - 2025-05-14
+
+- Added consent dialog when attempting to download/install requirements.
+- Fixed validation errors being raised when removing/re-installing mods.
+- Oblivion specific notifications will now get dismissed on game change.
+- Fixed some dialog/notification text and formatting.
+
 ## 0.1.4 - 2025-05-12
 
 - Added OBSE64 as a requirement for all game variants besides xbox.

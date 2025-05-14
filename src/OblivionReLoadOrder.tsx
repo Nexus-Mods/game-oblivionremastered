@@ -12,6 +12,7 @@ import { InfoPanel } from './views/InfoPanel';
 import { testLoadOrderChangeDebouncer } from './tests';
 
 class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
+  public static suppressValidation = false;
   public gameId: string;
   public toggleableEntries?: boolean | undefined;
   public clearStateOnPurge?: boolean | undefined;
@@ -107,6 +108,10 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
   }
 
   public async validate(prev: types.LoadOrder, current: types.LoadOrder): Promise<types.IValidationResult | undefined> {
+    if (OblivionReLoadOrder.suppressValidation) {
+      OblivionReLoadOrder.suppressValidation = false;
+      return Promise.resolve(undefined);
+    }
     const state = this.mApi.getState();
     const invalid: { id: string, reason: string }[] = [];
     const discovery = selectors.discoveryByGame(state, GAME_ID);
