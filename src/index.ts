@@ -203,6 +203,7 @@ function main(context: types.IExtensionContext) {
   context.registerLoadOrder(new OblivionReLoadOrder(context.api));
 
   context.once(() => {
+    context.api.setStylesheet('oblivionremastered', path.join(__dirname, 'obr.scss'));
     context.api.events.on('gamemode-activated', onGameModeActivated(context.api));
     context.api.events.on('mods-enabled', onModsEnabled(context.api));
 
