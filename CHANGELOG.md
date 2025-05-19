@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## 0.1.5 - 2025-05-14
 
+- Added loot support
 - Added consent dialog when attempting to download/install requirements.
 - Fixed validation errors being raised when removing/re-installing mods.
 - Oblivion specific notifications will now get dismissed on game change.
