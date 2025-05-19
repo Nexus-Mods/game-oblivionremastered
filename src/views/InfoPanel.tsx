@@ -1,11 +1,10 @@
 /* eslint-disable */
 import * as React from 'react';
 import { useSelector } from 'react-redux';
-import { Alert } from 'react-bootstrap';
 import { MainContext, selectors, tooltip, types, util } from 'vortex-api';
 
 import { GAME_ID, NS } from '../common';
-import { forceRefresh, lootSortingAllowed } from '../util';
+import { lootSortingAllowed } from '../util';
 
 interface IConnectedProps {
   loadOrder: types.ILoadOrderEntry[];
@@ -22,14 +21,6 @@ export function InfoPanel() {
       setIsXbox(true);
     }
   }, [isXbox, setIsXbox, discovery]);
-  const renderXboxWarningEnabledSystem = () => {
-    return isXbox ? (
-      <Alert bsStyle='warning'>
-        <p>{t('If you encounter the "This library isn\'t supported" error when launching the game - purge your mods and verify file integrity through the Xbox Game Pass App before deploying your mods again')}</p>
-      </Alert>
-    ) : null;
-  };
-
   return (
     <>
       <p>

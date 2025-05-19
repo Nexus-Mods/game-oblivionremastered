@@ -10,31 +10,40 @@ import {
   MOD_TYPE_PAK, MOD_TYPE_LUA, MOD_TYPE_BP_PAK,
   BPPAK_MODSFOLDER_PATH, IGNORE_DEPLOY,
   MOD_TYPE_DATAPATH, NATIVE_PLUGINS, DATA_PATH,
-  MOD_TYPE_BINARIES,
-  OBSE64_EXECUTABLE,
-  TOOL_ID_OBSE64,
+  MOD_TYPE_BINARIES, OBSE64_EXECUTABLE, TOOL_ID_OBSE64,
 } from './common';
 
 import {
-  onDidDeployEvent, onDidPurgeEvent, onGameModeActivated,
-  onModsEnabled, onWillPurgeEvent, onModsRemoved, onBakeSettings
+  onDidDeployEvent, onGameModeActivated, onModsEnabled,
+  onWillPurgeEvent, onModsRemoved, onBakeSettings
 } from './eventHandlers';
 
 import { sessionReducer, settingsReducer } from './reducers';
 
 import { getStopPatterns } from './stopPatterns';
+
 import {
   getBPPakPath, getPakPath, testBPPakPath, testPakPath,
   getLUAPath, testLUAPath, getDataPath, testDataPath,
-  getBinariesPath,
-  testBinariesPath,
+  getBinariesPath, testBinariesPath,
 } from './modTypes';
-import { installLuaMod, installRootMod, installUE4SSInjector, testLuaMod, testRootMod, testUE4SSInjector } from './installers';
+
+import { installLuaMod, installRootMod, installUE4SSInjector,
+  testLuaMod, testRootMod, testUE4SSInjector
+} from './installers';
 
 import { migrate } from './migrations';
 
-import { getGameVersionAsync, isGameActive, trySetPrimaryTool, resetPluginsFile, resolvePluginsFilePath, resolveRequirements, resolveUE4SSPath } from './util';
+import { getGameVersionAsync, isGameActive, trySetPrimaryTool,
+  resetPluginsFile, resolvePluginsFilePath, resolveRequirements,
+  resolveUE4SSPath,
+  lootSortingAllowed,
+  lootSort
+} from './util';
+
 import { download } from './downloader';
+
+import Settings from './views/Settings';
 
 import OblivionReLoadOrder from './OblivionReLoadOrder'
 
@@ -58,7 +67,7 @@ const gameFinderQuery = {
 };
 
 function main(context: types.IExtensionContext) {
-  context.registerReducer(['settings', GAME_ID, 'migrations'], settingsReducer);
+  context.registerReducer(['settings', GAME_ID], settingsReducer);
   context.registerReducer(['session', GAME_ID], sessionReducer);
   context.registerGame({
     id: GAME_ID,
@@ -87,13 +96,19 @@ function main(context: types.IExtensionContext) {
     },
   });
 
+  context.registerSettings('Mods', Settings, () => ({
+    t: context.api.translate,
+    allowLootSorting: () => lootSortingAllowed(context.api),
+    sort: () => lootSort(context.api),
+  }), isGameActive(context.api), 150);
+
   context.registerAction('mod-icons', 300, 'open-ext', {},
     'Open Logic Mods Folder', () => {
       const state = context.api.getState();
       const discovery = selectors.discoveryByGame(state, GAME_ID);
       const logicModsPath = path.join(discovery.path, BPPAK_MODSFOLDER_PATH);
       util.opn(logicModsPath).catch(() => null);
-    }, () => isGameActive(context.api));
+    }, isGameActive(context.api));
 
   context.registerAction('mod-icons', 300, 'open-ext', {},
     'Open LUA Mods Folder', () => {
@@ -102,22 +117,32 @@ function main(context: types.IExtensionContext) {
       const ue4ssPath = resolveUE4SSPath(context.api);
       const openPath = path.join(discovery.path, ue4ssPath, 'Mods');
       util.opn(openPath).catch(() => null);
-    }, () => isGameActive(context.api));
+    }, isGameActive(context.api));
 
   context.registerAction('mod-icons', 300, 'open-ext', {},
     'Open Plugins Folder', () => {
       util.opn(getDataPath(context.api)).catch(() => null);
-    }, () => isGameActive(context.api));
+    }, isGameActive(context.api));
 
   context.registerAction(
     'fb-load-order-icons', 150, 'open-ext', {},
     'View Plugins File', () => {
       resolvePluginsFilePath(context.api)
         .then((filePath) => { util.opn(filePath).catch(() => null); });
-    }, () => isGameActive(context.api));
+    }, isGameActive(context.api));
 
-  context.registerAction('fb-load-order-icons', 500, 'remove', {},
-    'Reset Plugins File', () => { resetPluginsFile(context.api) }, () => isGameActive(context.api));
+  context.registerAction(
+    'fb-load-order-icons', 500, 'remove', {},
+    'Reset Plugins File', () => {
+      resetPluginsFile(context.api)
+    }, isGameActive(context.api));
+
+  context.registerAction(
+    'fb-load-order-icons', 600, 'loot-sort', {},
+    'Sort via LOOT', () => {
+      lootSort(context.api)
+    }, () => isGameActive(context.api) && lootSortingAllowed(context.api),
+  )
 
   context.registerInstaller(`${GAME_ID}-ue4ss`, 10, testUE4SSInjector as any, installUE4SSInjector(context.api) as any);
 
@@ -134,7 +159,7 @@ function main(context: types.IExtensionContext) {
   context.registerModType(
     MOD_TYPE_BP_PAK,
     5,
-    (gameId) => GAME_ID === gameId,
+    isGameActive(context.api),
     (game: types.IGame) => getBPPakPath(context.api, game),
     (instructions: types.IInstruction[]) => testBPPakPath(context.api, instructions) as any,
     { deploymentEssential: true, name: 'Blueprint Mod' }
@@ -143,7 +168,7 @@ function main(context: types.IExtensionContext) {
   context.registerModType(
     MOD_TYPE_PAK,
     10,
-    (gameId) => GAME_ID === gameId,
+    isGameActive(context.api),
     (game: types.IGame) => getPakPath(context.api, game),
     (instructions: types.IInstruction[]) => testPakPath(context.api, instructions) as any,
     { deploymentEssential: true, name: 'Pak Mod' }
@@ -152,7 +177,7 @@ function main(context: types.IExtensionContext) {
   context.registerModType(
     MOD_TYPE_LUA,
     10,
-    (gameId) => GAME_ID === gameId,
+    isGameActive(context.api),
     (game: types.IGame) => getLUAPath(context.api, game),
     testLUAPath as any,
     { deploymentEssential: true, name: 'LUA Mod' }
@@ -161,7 +186,7 @@ function main(context: types.IExtensionContext) {
   context.registerModType(
     MOD_TYPE_DATAPATH,
     20,
-    (gameId) => GAME_ID === gameId,
+    isGameActive(context.api),
     (game: types.IGame) => getDataPath(context.api),
     testDataPath as any,
     { deploymentEssential: true, name: 'Data Folder' }
@@ -170,7 +195,7 @@ function main(context: types.IExtensionContext) {
   context.registerModType(
     MOD_TYPE_BINARIES,
     30,
-    (gameId) => GAME_ID === gameId,
+    isGameActive(context.api),
     () => getBinariesPath(context.api),
     testBinariesPath as any,
     { deploymentEssential: true, name: 'Binaries Folder' });
@@ -183,8 +208,8 @@ function main(context: types.IExtensionContext) {
 
     context.api.onAsync('will-remove-mods', onModsRemoved(context.api));
     context.api.onAsync('did-deploy', onDidDeployEvent(context.api));
-    context.api.onAsync('bake-settings', onBakeSettings(context.api));
-    context.api.onAsync('will-purge', onWillPurgeEvent(context.api));
+    // context.api.onAsync('bake-settings', onBakeSettings(context.api));
+    // context.api.onAsync('will-purge', onWillPurgeEvent(context.api));
   });
 
   return true;

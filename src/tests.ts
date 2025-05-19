@@ -7,7 +7,7 @@ import { GAME_ID, NS, NOTIF_ID_BP_MODLOADER_DISABLED,
   NOTIF_ID_UE4SS_VARIABLE_LAYOUT, NATIVE_PLUGINS, NOTIF_ID_NATIVE_PLUGINS_ISSUES,
 } from './common';
 import { EventType } from './types';
-import { findModByFile, forceRefresh, isNativeLoadOrderJumbled, resolveRequirements, resolveUE4SSPath, serializePluginsFile } from './util';
+import { findModByFile, forceRefresh, getManagementType, isNativeLoadOrderJumbled, resolveRequirements, resolveUE4SSPath, serializePluginsFile } from './util';
 import { download } from './downloader';
 
 export const testLoadOrderChangeDebouncer = new util.Debouncer((api: types.IExtensionApi, loadOrder: types.LoadOrder) => {
@@ -15,7 +15,7 @@ export const testLoadOrderChangeDebouncer = new util.Debouncer((api: types.IExte
 }, 1200);
 async function testLoadOrderChange(api: types.IExtensionApi, loadOrder: types.LoadOrder) {
   const state = api.getState();
-  if (selectors.activeGameId(state) !== GAME_ID) {
+  if (selectors.activeGameId(state) !== GAME_ID || getManagementType(api) === 'gamebryo') {
     return;
   }
 

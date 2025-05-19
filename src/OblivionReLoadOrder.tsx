@@ -81,8 +81,8 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
         enabled: confirmedPlugin.enabled,
       })));
     loadOrderEntries.sort((a, b) => {
-      const indexA = currentLO.findIndex(entry => entry.id === a.id);
-      const indexB = currentLO.findIndex(entry => entry.id === b.id);
+      const indexA = currentLO.findIndex(entry => entry.id.toLowerCase() === a.id.toLowerCase());
+      const indexB = currentLO.findIndex(entry => entry.id.toLowerCase() === b.id.toLowerCase());
 
       const isInvalidA = a.locked || a.data?.isInvalid;
       const isInvalidB = b.locked || b.data?.isInvalid;
