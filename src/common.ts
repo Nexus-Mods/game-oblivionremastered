@@ -15,6 +15,7 @@ export const NOTIF_ID_REQUIREMENTS = `notif-${GAME_ID}-requirements-download-not
 export const NOTIF_ID_UE4SS_UPDATE = `notif-${GAME_ID}-ue4ss-version-update`;
 export const NOTIF_ID_UE4SS_VARIABLE_LAYOUT = `notif-${GAME_ID}-ue4ss-member-variable-layout`;
 export const NOTIF_ID_NATIVE_PLUGINS_ISSUES = `notif-${GAME_ID}-native-plugins-issues`;
+export const NOTIF_ID_EXCLUDED_PLUGINS_DETECTED = `notif-${GAME_ID}-excluded-plugins-detected`;
 export const NOTIF_ID_UE4SS_REQUIREMENT_CONSENT = `notif-${GAME_ID}-ue4ss-requirement-consent`;
 export const NOTIF_ID_OBSE_REQUIREMENT_CONSENT = `notif-${GAME_ID}-obse64-requirement-consent`;
 export const NOTIF_ID_LOOT_SORTING = `notif-${GAME_ID}-loot-sorting`;
@@ -25,6 +26,7 @@ export const NOTIFICATION_IDS = [
   NOTIF_ID_UE4SS_UPDATE,
   NOTIF_ID_UE4SS_VARIABLE_LAYOUT,
   NOTIF_ID_NATIVE_PLUGINS_ISSUES,
+  NOTIF_ID_EXCLUDED_PLUGINS_DETECTED,
   NOTIF_ID_UE4SS_REQUIREMENT_CONSENT,
   NOTIF_ID_OBSE_REQUIREMENT_CONSENT,
   NOTIF_ID_LOOT_SORTING,

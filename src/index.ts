@@ -41,6 +41,8 @@ import { getGameVersionAsync, isGameActive, trySetPrimaryTool,
   lootSort
 } from './util';
 
+import { testExcludedPlugins, testExcludedPluginsDebouncer } from './tests';
+
 import { download } from './downloader';
 
 import Settings from './views/Settings';
@@ -201,6 +203,12 @@ function main(context: types.IExtensionContext) {
     { deploymentEssential: true, name: 'Binaries Folder' });
 
   context.registerLoadOrder(new OblivionReLoadOrder(context.api));
+
+  context.registerTest('excluded-plugins-detected', 'plugins-changed',
+    () => {
+      testExcludedPluginsDebouncer.schedule(undefined, context.api);
+      return Promise.resolve(undefined) as any;
+    });
 
   context.once(() => {
     context.api.setStylesheet('oblivionremastered', path.join(__dirname, 'obr.scss'));
