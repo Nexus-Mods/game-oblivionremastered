@@ -6,8 +6,8 @@ import { findModByFile, findDownloadIdByPattern, getEnabledMods, resolveVersion 
 import { getBinariesPath } from './modTypes';
 
 export const DEBUG_ENABLED = false;
-export const DEBUG_APP_VERSION = '1.14.0';
-export const CONSTRAINT_LOOT_FUNCTIONALITY = '^1.14.0';
+export const DEBUG_APP_VERSION = '1.13.7';
+export const CONSTRAINT_LOOT_FUNCTIONALITY = '^1.14.0-beta.4';
 
 export const GAME_ID = 'oblivionremastered';
 export const NOTIF_ID_BP_MODLOADER_DISABLED = `notif-${GAME_ID}-bp-modloader-disabled`;
