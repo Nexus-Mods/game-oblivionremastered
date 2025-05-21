@@ -310,7 +310,7 @@ export async function serializePluginsFile(api: types.IExtensionApi, plugins: ty
     if (plugin?.name === undefined) {
       return acc;
     }
-    const pluginName = plugin.name.toLowerCase();
+    const pluginName = plugin.name;
     const disabled = (plugin.data?.isInvalid || !plugin.enabled) ? '#' : '';
     acc.push(`${disabled}${pluginName}`);
     return acc;
@@ -384,7 +384,7 @@ export async function parsePluginsFile(api: types.IExtensionApi, isInDataFolder:
   const currentLO = await deserializePluginsFile(api);
   return Promise.all(currentLO.map(async (line) => {
     const enabled = line.trim().length > 0 && !line.startsWith('#');
-    const pluginName = line.replace(/\#/g, '').toLowerCase();
+    const pluginName = line.replace(/\#/g, '');
     return generateLoadOrderEntry(api, { pluginName, enabled }, isInDataFolder);
   }));
 }
@@ -458,7 +458,7 @@ export async function lootSort(api: types.IExtensionApi) {
       }
       api.dismissNotification(NOTIF_ID_LOOT_SORTING);
       const loEntries = await Promise.all(result.map((p) => {
-        const pluginName = path.basename(p).toLowerCase();
+        const pluginName = path.basename(p);
         return generateLoadOrderEntry(api, { pluginName, enabled: true });
       }));
       serializePluginsFile(api, loEntries)
