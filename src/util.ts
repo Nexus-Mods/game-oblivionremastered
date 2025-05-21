@@ -301,6 +301,11 @@ export const resolveNativePlugins = async (api: types.IExtensionApi): Promise<st
 }
 
 export async function serializePluginsFile(api: types.IExtensionApi, plugins: types.ILoadOrderEntry[]): Promise<void> {
+  if (getManagementType(api) === 'gamebryo') {
+    // Just a sanity check to ensure we don't interfere with the gamebryo plugin management
+    //  even if somehow the event handlers are being called.
+    return Promise.resolve();
+  }
   const data: string[] = plugins.reduce((acc, plugin) => {
     if (plugin?.name === undefined) {
       return acc;
@@ -428,20 +433,6 @@ export async function runStagingOperationOnMod(api: types.IExtensionApi, modId: 
 //#endregion
 
 //#region loot
-export async function switchToLoot(api: types.IExtensionApi) {
-  const state = api.getState();
-  const profileId = selectors.lastActiveProfileForGame(state, GAME_ID);
-  const loadOrder: types.ILoadOrderEntry[] = util.getSafe(state, ['persistent', 'loadOrder', profileId], []);
-  const nativePlugins = await resolveNativePlugins(api);
-  const enabled = loadOrder.filter(l => l.enabled && !nativePlugins.includes(l.name.toLowerCase())).map(l => l.name);
-  try {
-    await deploy(api);
-    setEnabledPluginsLoot(api, enabled);
-  } catch (err) {
-    api.showErrorNotification('Failed to switch to automated sorting', err);
-    throw err;
-  }
-}
 
 export const lootSortingAllowed = (api: types.IExtensionApi) => {
   const state = api.getState();
@@ -509,17 +500,6 @@ export function forceRefresh(api: types.IExtensionApi) {
     },
   };
   api.store.dispatch(action);
-}
-
-export function setEnabledPluginsLoot(api: types.IExtensionApi, enabled: string[]) {
- const enablePluginActions = enabled.map(p => ({
-    type: 'SET_PLUGIN_ENABLED',
-    payload: {
-      pluginName: p,
-      enabled: true,
-    },
-  }));
-  util.batchDispatch(api.store, enablePluginActions);
 }
 
 export function setPluginManagementEnabled(api: types.IExtensionApi, enabled: boolean) {

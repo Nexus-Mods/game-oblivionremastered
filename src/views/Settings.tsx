@@ -8,7 +8,7 @@ import { setLoadOrderManagementType } from '../actions';
 
 import { NS, GAME_ID } from '../common';
 
-import { setPluginManagementEnabled, switchToLoot } from '../util';
+import { setPluginManagementEnabled } from '../util';
 import { LoadOrderManagementType } from '../types';
 import { useTranslation } from 'react-i18next';
 
@@ -47,20 +47,9 @@ function renderLOManagementType(props: IBaseProps & IConnectedProps): JSX.Elemen
         .then(async (res) => {
           if (res.action === 'Change') {
             const api = context.api;
-            const prev = props.loManagementType;
             dispatch(setLoadOrderManagementType(activeProfile.id, evt));
             setSelected(dropDownItems[evt]);
             setPluginManagementEnabled(context.api, evt === 'gamebryo');
-            if (evt === 'gamebryo') {
-              try {
-                await switchToLoot(api);
-              } catch (err) {
-                dispatch(setLoadOrderManagementType(activeProfile.id, prev));
-                setSelected(dropDownItems[prev]);
-                setPluginManagementEnabled(context.api, false);
-                return;
-              }
-            }
             api.events.emit('show-main-page', 'Dashboard', false);
           }
         })

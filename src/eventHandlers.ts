@@ -70,7 +70,6 @@ export const onWillPurgeEvent = (api: types.IExtensionApi) => async (profileId: 
   }
 
   const loadOrder = await parsePluginsFile(api, () => true);
-  api.store.dispatch(setLoadOrderRedundancy(profileId, loadOrder));
 
   return;
 }
