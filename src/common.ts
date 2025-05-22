@@ -6,15 +6,31 @@ import { findModByFile, findDownloadIdByPattern, getEnabledMods, resolveVersion 
 import { getBinariesPath } from './modTypes';
 
 export const DEBUG_ENABLED = false;
-export const DEBUG_APP_VERSION = '1.12.0';
-export const CONSTRAINT_LOOT_FUNCTIONALITY = '^1.12.0';
+export const DEBUG_APP_VERSION = '1.13.7';
+export const CONSTRAINT_LOOT_FUNCTIONALITY = '^1.14.0-beta.4';
 
 export const GAME_ID = 'oblivionremastered';
 export const NOTIF_ID_BP_MODLOADER_DISABLED = `notif-${GAME_ID}-bp-modloader-disabled`;
 export const NOTIF_ID_REQUIREMENTS = `notif-${GAME_ID}-requirements-download-notification`;
 export const NOTIF_ID_UE4SS_UPDATE = `notif-${GAME_ID}-ue4ss-version-update`;
-export const NOTIF_ID_UE4SS_VARIABLE_LAYOUT = `notif-${GAME_ID}-ue4ss-member-variable-layout`
+export const NOTIF_ID_UE4SS_VARIABLE_LAYOUT = `notif-${GAME_ID}-ue4ss-member-variable-layout`;
 export const NOTIF_ID_NATIVE_PLUGINS_ISSUES = `notif-${GAME_ID}-native-plugins-issues`;
+export const NOTIF_ID_EXCLUDED_PLUGINS_DETECTED = `notif-${GAME_ID}-excluded-plugins-detected`;
+export const NOTIF_ID_UE4SS_REQUIREMENT_CONSENT = `notif-${GAME_ID}-ue4ss-requirement-consent`;
+export const NOTIF_ID_OBSE_REQUIREMENT_CONSENT = `notif-${GAME_ID}-obse64-requirement-consent`;
+export const NOTIF_ID_LOOT_SORTING = `notif-${GAME_ID}-loot-sorting`;
+
+export const NOTIFICATION_IDS = [
+  NOTIF_ID_BP_MODLOADER_DISABLED,
+  NOTIF_ID_REQUIREMENTS,
+  NOTIF_ID_UE4SS_UPDATE,
+  NOTIF_ID_UE4SS_VARIABLE_LAYOUT,
+  NOTIF_ID_NATIVE_PLUGINS_ISSUES,
+  NOTIF_ID_EXCLUDED_PLUGINS_DETECTED,
+  NOTIF_ID_UE4SS_REQUIREMENT_CONSENT,
+  NOTIF_ID_OBSE_REQUIREMENT_CONSENT,
+  NOTIF_ID_LOOT_SORTING,
+];
 
 export const DIALOG_ID_RESET_PLUGINS_FILE = `dialog-${GAME_ID}-reset-plugins-file`;
 

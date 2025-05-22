@@ -4,28 +4,29 @@ import path from 'path';
 import semver from 'semver';
 import turbowalk, { IWalkOptions, IEntry } from 'turbowalk';
 import { actions, fs, log, selectors, types, util } from 'vortex-api';
-import {  parseStringPromise } from 'xml2js';
+import { parseStringPromise } from 'xml2js';
 
-import { BINARIES_PATH, GAME_ID, NOTIF_ID_BP_MODLOADER_DISABLED,
-  MOD_TYPE_LUA, NOTIF_ID_UE4SS_UPDATE, XBOX_APP_X_MANIFEST,
-  DATA_PATH, NATIVE_PLUGINS, GAMEBRYO_PLUGIN_EXTENSIONS, EXTENSION_REQUIREMENTS,
+import {
+  BINARIES_PATH, GAME_ID, MOD_TYPE_LUA, XBOX_APP_X_MANIFEST, DATA_PATH,
+  NATIVE_PLUGINS, GAMEBRYO_PLUGIN_EXTENSIONS, EXTENSION_REQUIREMENTS,
   DIALOG_ID_RESET_PLUGINS_FILE, NATIVE_PLUGINS_EXCLUDED, DEBUG_ENABLED, obseRequirement,
-  TOOL_ID_OBSE64,
+  TOOL_ID_OBSE64, NOTIFICATION_IDS, DEBUG_APP_VERSION, CONSTRAINT_LOOT_FUNCTIONALITY,
+  NOTIF_ID_LOOT_SORTING,
+  NOTIF_ID_NATIVE_PLUGINS_ISSUES,
 } from './common';
 
 import { IExtensionRequirement, IPluginEntry, LoadOrderManagementType } from './types';
 
-export function isGameActive(api: types.IExtensionApi): boolean {
+//#region general utility functions
+export const isGameActive = (api: types.IExtensionApi) => (instanceIds?: string | string[]): boolean => {
   const state = api.getState();
-  const gameId = selectors.activeGameId(state);
-  return gameId === GAME_ID;
-}
-
-export const lootSortingAllowed = (api: types.IExtensionApi) => {
-  return false;
-  // const state = api.getState();
-  // const appVersion = DEBUG_ENABLED ? DEBUG_APP_VERSION : util.getSafe(state, ['app', 'appVersion'], '0.0.1');
-  // return appVersion === '0.0.1' || semver.satisfies(util.semverCoerce(appVersion), CONSTRAINT_LOOT_FUNCTIONALITY);
+  let gameMode;
+  if (Array.isArray(instanceIds)) {
+    gameMode = selectors.activeGameId(state);
+  } else {
+    gameMode = instanceIds || selectors.activeGameId(state); 
+  }
+  return gameMode === GAME_ID;
 }
 
 export const trySetPrimaryTool = async (api: types.IExtensionApi) => {
@@ -217,25 +218,9 @@ export async function walkPath(dirPath: string, walkOptions?: IWalkOptions): Pro
   });
 }
 
-// Staging folder file operations require the mod to be purged and re-deployed once the
-//  staging operation is complete. This function will remove the mod with the specified modId
-//  and run the specified function before re-deploying the mod.
-// IMPORTANT: all operations within the provided functor should ensure to only apply to the provided
-//  modId to ensure we avoid deployment corruption.
-export async function runStagingOperationOnMod(api: types.IExtensionApi, modId: string, func: (...args: any[]) => Promise<void>): Promise<void> {
-  try {
-    await api.emitAndAwait('deploy-single-mod', GAME_ID, modId, false);
-    await func(api, modId);
-    await api.emitAndAwait('deploy-single-mod', GAME_ID, modId);
-  } catch (err) {
-    api.showErrorNotification('Failed to run staging operation', err);
-    return;
-  }
-}
-
 export function dismissNotifications(api: types.IExtensionApi) {
   // We're not dismissing the downloader notifications intentionally.
-  [NOTIF_ID_BP_MODLOADER_DISABLED, NOTIF_ID_UE4SS_UPDATE].forEach(id => api.dismissNotification(id));
+  NOTIFICATION_IDS.forEach(id => api.dismissNotification(id));
 }
 
 export function isLuaMod(mod: types.IMod): boolean {
@@ -273,18 +258,20 @@ export const resetPluginsFile = async (api: types.IExtensionApi) => {
     text: 'The plugins file will be reset to the default state. Are you sure?',
   }, [
     { label: 'Cancel' },
-    { label: 'Reset', action: async () => {
-      const pluginsFile = await resolvePluginsFilePath(api);
-      try {
-        await fs.removeAsync(pluginsFile);
-        const nativePlugins = await resolveNativePlugins(api);
-        const pluginList = nativePlugins.map(plug => NATIVE_PLUGINS_EXCLUDED.includes(plug.toLowerCase()) ? `#${plug}` : plug);
-        await fs.writeFileAsync(pluginsFile, pluginList.join('\n'), { encoding: 'utf8' });
-        forceRefresh(api);
-      } catch (err) {
-        log('warn', 'failed to remove plugins file', err);
+    {
+      label: 'Reset', action: async () => {
+        const pluginsFile = await resolvePluginsFilePath(api);
+        try {
+          await fs.removeAsync(pluginsFile);
+          const nativePlugins = await resolveNativePlugins(api);
+          const pluginList = nativePlugins.map(plug => NATIVE_PLUGINS_EXCLUDED.includes(plug.toLowerCase()) ? `#${plug}` : plug);
+          await fs.writeFileAsync(pluginsFile, pluginList.join('\n'), { encoding: 'utf8' });
+          forceRefresh(api);
+        } catch (err) {
+          log('warn', 'failed to remove plugins file', err);
+        }
       }
-    }}
+    }
   ], DIALOG_ID_RESET_PLUGINS_FILE);
 }
 
@@ -315,16 +302,23 @@ export const resolveNativePlugins = async (api: types.IExtensionApi): Promise<st
 }
 
 export async function serializePluginsFile(api: types.IExtensionApi, plugins: types.ILoadOrderEntry[]): Promise<void> {
+  if (getManagementType(api) === 'gamebryo') {
+    // Just a sanity check to ensure we don't interfere with the gamebryo plugin management
+    //  even if somehow the event handlers are being called.
+    return Promise.resolve();
+  }
   const data: string[] = plugins.reduce((acc, plugin) => {
     if (plugin?.name === undefined) {
       return acc;
     }
+    const pluginName = plugin.name;
     const disabled = (plugin.data?.isInvalid || !plugin.enabled) ? '#' : '';
-    acc.push(`${disabled}${plugin.name}`);
+    acc.push(`${disabled}${pluginName}`);
     return acc;
   }, ['## This file was automatically generated by Vortex. Do not edit this file.']);
   const pluginsFile = await resolvePluginsFilePath(api);
-  await fs.writeFileAsync(pluginsFile, data.filter(plug => !!plug).join('\n'), { encoding: 'utf8' });
+  await fs.ensureDirWritableAsync(path.dirname(pluginsFile));
+  return fs.writeFileAsync(pluginsFile, data.filter(plug => !!plug).join('\n'), { encoding: 'utf8' });
 }
 
 export function isNativeLoadOrderJumbled(loadOrder: types.LoadOrder): boolean {
@@ -349,25 +343,25 @@ export function isPluginExcluded(plugin: string) {
 }
 
 export function isModEnabled(api: types.IExtensionApi, modId: string) {
-    const state = api.getState();
-    const profile = selectors.activeProfile(state);
-    return util.getSafe(profile, ['modState', modId, 'enabled'], false);
-  };
+  const state = api.getState();
+  const profile = selectors.activeProfile(state);
+  return util.getSafe(profile, ['modState', modId, 'enabled'], false);
+};
 
 export function isPluginInvalid(api: types.IExtensionApi, pluginEntry: IPluginEntry, mod: types.IMod, isInDataFolder: (name: string) => boolean) {
-    if (isPluginExcluded(pluginEntry.pluginName)) {
-      return true;
-    }
-    const state = api.getState();
-    const deploymentNeeded = util.getSafe(state, ['persistent', 'deployment', 'needToDeploy', GAME_ID], false);
-    if (deploymentNeeded) {
-      return false;
-    }
-
-    return mod !== undefined
-      ? isModEnabled(api, mod.id) && !isInDataFolder(pluginEntry.pluginName)
-      : !isInDataFolder(pluginEntry.pluginName);
+  if (isPluginExcluded(pluginEntry.pluginName)) {
+    return true;
   }
+  const state = api.getState();
+  const deploymentNeeded = util.getSafe(state, ['persistent', 'deployment', 'needToDeploy', GAME_ID], false);
+  if (deploymentNeeded) {
+    return false;
+  }
+
+  return mod !== undefined
+    ? isModEnabled(api, mod.id) && !isInDataFolder(pluginEntry.pluginName)
+    : !isInDataFolder(pluginEntry.pluginName);
+}
 
 export async function generateLoadOrderEntry(
   api: types.IExtensionApi,
@@ -408,6 +402,93 @@ export async function deserializePluginsFile(api: types.IExtensionApi): Promise<
     return Array.from(new Set(lines));
   } catch (err) {
     return [];
+  }
+}
+//#endregion
+
+//#region deployment utility functions
+export async function purge(api: types.IExtensionApi): Promise<void> {
+  return new Promise<void>((resolve, reject) =>
+    api.events.emit('purge-mods', true, (err) => err ? reject(err) : resolve()));
+}
+
+export async function deploy(api: types.IExtensionApi): Promise<void> {
+  return new Promise<void>((resolve, reject) =>
+    api.events.emit('deploy-mods', (err) => err ? reject(err) : resolve()));
+}
+
+// Staging folder file operations require the mod to be purged and re-deployed once the
+//  staging operation is complete. This function will remove the mod with the specified modId
+//  and run the specified function before re-deploying the mod.
+// IMPORTANT: all operations within the provided functor should ensure to only apply to the provided
+//  modId to ensure we avoid deployment corruption.
+export async function runStagingOperationOnMod(api: types.IExtensionApi, modId: string, func: (...args: any[]) => Promise<void>): Promise<void> {
+  try {
+    await api.emitAndAwait('deploy-single-mod', GAME_ID, modId, false);
+    await func(api, modId);
+    await api.emitAndAwait('deploy-single-mod', GAME_ID, modId);
+  } catch (err) {
+    api.showErrorNotification('Failed to run staging operation', err);
+    return;
+  }
+}
+//#endregion
+
+//#region loot
+
+export const lootSortingAllowed = (api: types.IExtensionApi) => {
+  const state = api.getState();
+  const appVersion = DEBUG_ENABLED ? DEBUG_APP_VERSION : util.getSafe(state, ['app', 'appVersion'], '0.0.1');
+  const coerced = util.semverCoerce(appVersion, { includePrerelease: true });
+  return appVersion === '0.0.1' || semver.satisfies(coerced, CONSTRAINT_LOOT_FUNCTIONALITY, {  includePrerelease: true });
+}
+
+export async function lootSort(api: types.IExtensionApi) {
+  {
+    if (!lootSortingAllowed(api)) {
+      return;
+    }
+    api.dismissNotification(NOTIF_ID_NATIVE_PLUGINS_ISSUES);
+    api.sendNotification({
+      type: 'activity',
+      message: 'Sorting plugins via LOOT...',
+      id: NOTIF_ID_LOOT_SORTING,
+    });
+    const onSortCallback = async (err: Error, result: string[]) => {
+      if (err) {
+        api.showErrorNotification('LOOT sort failed', err);
+        api.dismissNotification(NOTIF_ID_LOOT_SORTING);
+        return;
+      }
+      api.dismissNotification(NOTIF_ID_LOOT_SORTING);
+      const loEntries = await Promise.all(result.map((p) => {
+        const pluginName = path.basename(p);
+        return generateLoadOrderEntry(api, { pluginName, enabled: true });
+      }));
+      serializePluginsFile(api, loEntries)
+        .then(() => { forceRefresh(api); });
+    };
+    if (api.ext.lootSortAsync !== undefined) {
+      const discovery = selectors.discoveryByGame(api.getState(), GAME_ID);
+      const dataPath = path.join(discovery.path, DATA_PATH);
+      try {
+        const contents = await walkPath(dataPath, { recurse: false });
+        const pluginFilePaths = contents.reduce((accum, p) => {
+          GAMEBRYO_PLUGIN_EXTENSIONS.includes(path.extname(p.filePath)) && accum.push(p.filePath);
+          return accum;
+        }, []);
+        api.ext.lootSortAsync({ pluginFilePaths, onSortCallback });
+      } catch (err) {
+        log('error', 'Could not read data folder to sort plugins', err);
+        api.dismissNotification(NOTIF_ID_LOOT_SORTING);
+        api.showErrorNotification('Could not read the data folder to sort plugins.', err);
+        return Promise.resolve();
+      }
+    } else {
+      api.showErrorNotification('LOOT sort API extension is unavailable', 'Please ensure the Gamebryo Plugins Management extension is enabled');
+      api.dismissNotification(NOTIF_ID_LOOT_SORTING);
+    }
+    return Promise.resolve();
   }
 }
 //#endregion

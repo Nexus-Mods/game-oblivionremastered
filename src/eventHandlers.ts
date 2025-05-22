@@ -2,10 +2,11 @@ import { log, selectors, types, util } from 'vortex-api'
 
 import { GAME_ID } from './common';
 import { onAddMod, onRemoveMod } from './modsFile';
-import { testBluePrintModManager, testLoadOrderChangeDebouncer } from './tests'
+import { testBluePrintModManager, testExcludedPlugins, testExcludedPluginsDebouncer, testLoadOrderChangeDebouncer } from './tests'
 import { dismissNotifications, isLuaMod, parsePluginsFile, resolveRequirements, trySetPrimaryTool } from './util';
 import { download } from './downloader';
 import { applyLoadOrderRedundancy, setLoadOrderRedundancy } from './actions';
+import OblivionReLoadOrder from './OblivionReLoadOrder';
 
 //#region API event handlers
 export const onGameModeActivated = (api: types.IExtensionApi) => async (gameMode: string) => {
@@ -54,6 +55,7 @@ export const onDidDeployEvent = (api: types.IExtensionApi) =>
       await testBluePrintModManager(api, 'did-deploy');
       // await testMemberVariableLayout(api, 'did-deploy');
       await onDidDeployLuaEvent(api, profile);
+      testExcludedPluginsDebouncer.schedule(undefined, api);
     } catch (err) {
       log('warn', 'failed to test BluePrint Mod Manager', err);
     }
@@ -69,7 +71,6 @@ export const onWillPurgeEvent = (api: types.IExtensionApi) => async (profileId: 
   }
 
   const loadOrder = await parsePluginsFile(api, () => true);
-  api.store.dispatch(setLoadOrderRedundancy(profileId, loadOrder));
 
   return;
 }
@@ -103,6 +104,7 @@ export const onModsRemoved = (api: types.IExtensionApi) => async (gameId: string
   if (gameId !== GAME_ID) {
     return;
   }
+  OblivionReLoadOrder.suppressValidation = true;
   for (const modId of modIds) {
     await onRemoveMod(api, modId);
   }

@@ -5,17 +5,64 @@ import { fs, types, selectors, util } from 'vortex-api';
 import { GAME_ID, NS, NOTIF_ID_BP_MODLOADER_DISABLED,
   UE4SS_ENABLED_FILE, UE4SS_SETTINGS_FILE, UE4SS_MEMBER_VARIABLE_LAYOUT_FILE,
   NOTIF_ID_UE4SS_VARIABLE_LAYOUT, NATIVE_PLUGINS, NOTIF_ID_NATIVE_PLUGINS_ISSUES,
+  NATIVE_PLUGINS_EXCLUDED,
+  NOTIF_ID_EXCLUDED_PLUGINS_DETECTED,
 } from './common';
 import { EventType } from './types';
-import { findModByFile, forceRefresh, isNativeLoadOrderJumbled, resolveRequirements, resolveUE4SSPath, serializePluginsFile } from './util';
+import { findModByFile, forceRefresh, getManagementType, isNativeLoadOrderJumbled, resolveRequirements, resolveUE4SSPath, serializePluginsFile } from './util';
 import { download } from './downloader';
 
 export const testLoadOrderChangeDebouncer = new util.Debouncer((api: types.IExtensionApi, loadOrder: types.LoadOrder) => {
   return testLoadOrderChange(api, loadOrder);
 }, 1200);
+
+export const testExcludedPluginsDebouncer = new util.Debouncer((api: types.IExtensionApi) => {
+  api.dismissNotification(NOTIF_ID_EXCLUDED_PLUGINS_DETECTED);
+  return testExcludedPlugins(api);
+}, 1200);
+
+export async function testExcludedPlugins(api: types.IExtensionApi) {
+  if (getManagementType(api) !== 'gamebryo') {
+    return Promise.resolve(undefined);
+  }
+  const state = api.getState();
+  const loadOrder = util.getSafe(state, ['loadOrder'], {});
+  const isEnabled = (plugin => loadOrder[plugin.toLowerCase()]?.enabled === true);
+  const data = Object.keys(util.getSafe(state, ['session', 'plugins', 'pluginList'], {}))
+      .filter(isEnabled)
+      .map((entry) => entry.toLowerCase());
+
+  if (NATIVE_PLUGINS_EXCLUDED.some((plugin) => data.includes(plugin))) {
+    api.sendNotification({
+      message: 'Invalid plugins detected in load order',
+      type: 'warning',
+      allowSuppress: true,
+      id: NOTIF_ID_EXCLUDED_PLUGINS_DETECTED,
+      actions: [
+        {
+          title: 'More',
+          action: async (dismiss) => {
+            dismiss();
+            api.showDialog('question', 'Invalid plugins detected', {
+              bbcode: api.translate('The following plugins contain invalid records and may cause unexpected behaviour in-game. These plugins should be disabled: [br][/br]'
+                      + NATIVE_PLUGINS_EXCLUDED.map((plugin) => `[br][/br]${plugin}`).join('')),
+            }, [
+              {
+                label: 'Close',
+                default: true,
+              },
+            ]);
+          }
+        }
+      ]
+    });
+  }
+  return Promise.resolve(undefined);
+}
+
 async function testLoadOrderChange(api: types.IExtensionApi, loadOrder: types.LoadOrder) {
   const state = api.getState();
-  if (selectors.activeGameId(state) !== GAME_ID) {
+  if (selectors.activeGameId(state) !== GAME_ID || getManagementType(api) === 'gamebryo') {
     return;
   }
 
@@ -23,7 +70,7 @@ async function testLoadOrderChange(api: types.IExtensionApi, loadOrder: types.Lo
   const allNativePluginsEnabled = nativePlugins.every(entry => entry.enabled);
   if (!allNativePluginsEnabled) {
     api.sendNotification({
-      message: 'Native plugins are disabled, this may cause issues!',
+      message: 'Native plugins are disabled, this may cause crashes!',
       type: 'warning',
       allowSuppress: false,
       id: NOTIF_ID_NATIVE_PLUGINS_ISSUES,
@@ -37,7 +84,7 @@ async function testLoadOrderChange(api: types.IExtensionApi, loadOrder: types.Lo
         await serializePluginsFile(api, newLO);
         forceRefresh(api);
         api.sendNotification({
-          message: 'Native plugins order has been corrected',
+          message: 'All native plugins have been enabled',
           type: 'success',
           displayMS: 3000,
         });

@@ -12,6 +12,7 @@ import { InfoPanel } from './views/InfoPanel';
 import { testLoadOrderChangeDebouncer } from './tests';
 
 class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
+  public static suppressValidation = false;
   public gameId: string;
   public toggleableEntries?: boolean | undefined;
   public clearStateOnPurge?: boolean | undefined;
@@ -80,8 +81,8 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
         enabled: confirmedPlugin.enabled,
       })));
     loadOrderEntries.sort((a, b) => {
-      const indexA = currentLO.findIndex(entry => entry.id === a.id);
-      const indexB = currentLO.findIndex(entry => entry.id === b.id);
+      const indexA = currentLO.findIndex(entry => entry.id.toLowerCase() === a.id.toLowerCase());
+      const indexB = currentLO.findIndex(entry => entry.id.toLowerCase() === b.id.toLowerCase());
 
       const isInvalidA = a.locked || a.data?.isInvalid;
       const isInvalidB = b.locked || b.data?.isInvalid;
@@ -107,6 +108,10 @@ class OblivionReLoadOrder implements types.ILoadOrderGameInfo {
   }
 
   public async validate(prev: types.LoadOrder, current: types.LoadOrder): Promise<types.IValidationResult | undefined> {
+    if (OblivionReLoadOrder.suppressValidation) {
+      OblivionReLoadOrder.suppressValidation = false;
+      return Promise.resolve(undefined);
+    }
     const state = this.mApi.getState();
     const invalid: { id: string, reason: string }[] = [];
     const discovery = selectors.discoveryByGame(state, GAME_ID);
