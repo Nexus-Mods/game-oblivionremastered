@@ -230,15 +230,19 @@ const setup = (api: types.IExtensionApi) => async (discovery: types.IDiscoveryRe
   // Make sure the folders exist
   const ensurePath = (filePath: string) => fs.ensureDirWritableAsync(path.join(discovery.path, filePath));
   try {
-    const requirements = resolveRequirements(api);
     const UE4SSPath = resolveUE4SSPath(api);
     await Promise.all([path.join(UE4SSPath, 'Mods'), PAK_MODSFOLDER_PATH, BPPAK_MODSFOLDER_PATH].map(ensurePath));
     await migrate(api);
-    await download(api, requirements);
-    await trySetPrimaryTool(api);
   } catch (err) {
     api.showErrorNotification('Failed to setup extension', err);
     return;
+  } finally {
+    const requirements = resolveRequirements(api);
+    download(api, requirements)
+      .then(() => trySetPrimaryTool(api))
+      .catch((err) => {
+        api.showErrorNotification('Failed to download requirements', err);
+      })
   }
 }
 

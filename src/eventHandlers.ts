@@ -50,8 +50,12 @@ export const onDidDeployEvent = (api: types.IExtensionApi) =>
       return Promise.resolve();
     }
     try {
-      await download(api, resolveRequirements(api));
-      await trySetPrimaryTool(api)
+      // const requirements = resolveRequirements(api);
+      // download(api, requirements)
+      //   .then(() => trySetPrimaryTool(api))
+      //   .catch((err) => {
+      //     api.showErrorNotification('Failed to download requirements', err);
+      //   });
       await testBluePrintModManager(api, 'did-deploy');
       // await testMemberVariableLayout(api, 'did-deploy');
       await onDidDeployLuaEvent(api, profile);
