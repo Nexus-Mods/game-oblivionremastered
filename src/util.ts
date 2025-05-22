@@ -12,6 +12,7 @@ import {
   DIALOG_ID_RESET_PLUGINS_FILE, NATIVE_PLUGINS_EXCLUDED, DEBUG_ENABLED, obseRequirement,
   TOOL_ID_OBSE64, NOTIFICATION_IDS, DEBUG_APP_VERSION, CONSTRAINT_LOOT_FUNCTIONALITY,
   NOTIF_ID_LOOT_SORTING,
+  NOTIF_ID_NATIVE_PLUGINS_ISSUES,
 } from './common';
 
 import { IExtensionRequirement, IPluginEntry, LoadOrderManagementType } from './types';
@@ -447,6 +448,7 @@ export async function lootSort(api: types.IExtensionApi) {
     if (!lootSortingAllowed(api)) {
       return;
     }
+    api.dismissNotification(NOTIF_ID_NATIVE_PLUGINS_ISSUES);
     api.sendNotification({
       type: 'activity',
       message: 'Sorting plugins via LOOT...',
