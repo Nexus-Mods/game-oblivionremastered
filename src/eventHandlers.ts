@@ -1,11 +1,12 @@
+import * as path from 'path';
 import { log, selectors, types, util } from 'vortex-api'
 
 import { GAME_ID } from './common';
 import { onAddMod, onRemoveMod } from './modsFile';
-import { testBluePrintModManager, testExcludedPlugins, testExcludedPluginsDebouncer, testLoadOrderChangeDebouncer } from './tests'
-import { dismissNotifications, isLuaMod, parsePluginsFile, resolveRequirements, trySetPrimaryTool } from './util';
-import { download } from './downloader';
-import { applyLoadOrderRedundancy, setLoadOrderRedundancy } from './actions';
+import { mergeIniFiles } from './iniMerger';
+import { testBluePrintModManager, testExcludedPluginsDebouncer, testLoadOrderChangeDebouncer } from './tests'
+import { dismissNotifications, isLuaMod, parsePluginsFile, walkPath } from './util';
+import { applyLoadOrderRedundancy } from './actions';
 import OblivionReLoadOrder from './OblivionReLoadOrder';
 
 //#region API event handlers
@@ -39,6 +40,14 @@ export const onBakeSettings = (api: types.IExtensionApi) => async (gameMode: str
   const currentLoadOrder = util.getSafe(api.getState(), ['persistent', 'loadOrder', profileId], []);
   const loadOrder = unappliedLORedundancy.length > 0 ? unappliedLORedundancy : (currentLoadOrder ?? await parsePluginsFile(api, () => true));
   testLoadOrderChangeDebouncer.schedule(undefined, api, loadOrder);
+}
+
+export const onWillDeployEvent = (api: types.IExtensionApi) => async (profileId: string): Promise<void> => {
+  try {
+    await mergeIniFiles(api);
+  } catch (err) {
+    api.showErrorNotification('Failed to merge INI files before deployment', err);
+  }
 }
 
 export const onDidDeployEvent = (api: types.IExtensionApi) =>
