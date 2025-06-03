@@ -143,7 +143,7 @@ function main(context: types.IExtensionContext) {
     'fb-load-order-icons', 600, 'loot-sort', {},
     'Sort via LOOT', () => {
       lootSort(context.api)
-    }, () => isGameActive(context.api) && lootSortingAllowed(context.api),
+    }, () => isGameActive(context.api)() && lootSortingAllowed(context.api),
   )
 
   context.registerInstaller(`${GAME_ID}-ue4ss`, 10, testUE4SSInjector as any, installUE4SSInjector(context.api) as any);
