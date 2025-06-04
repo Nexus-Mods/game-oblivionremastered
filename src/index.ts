@@ -11,11 +11,12 @@ import {
   BPPAK_MODSFOLDER_PATH, IGNORE_DEPLOY,
   MOD_TYPE_DATAPATH, NATIVE_PLUGINS, DATA_PATH,
   MOD_TYPE_BINARIES, OBSE64_EXECUTABLE, TOOL_ID_OBSE64,
+  MOD_TYPE_INI_TWEAKS,
 } from './common';
 
 import {
   onDidDeployEvent, onGameModeActivated, onModsEnabled,
-  onWillPurgeEvent, onModsRemoved, onBakeSettings
+  onWillDeployEvent, onModsRemoved,
 } from './eventHandlers';
 
 import { sessionReducer, settingsReducer } from './reducers';
@@ -202,6 +203,14 @@ function main(context: types.IExtensionContext) {
     testBinariesPath as any,
     { deploymentEssential: true, name: 'Binaries Folder' });
 
+  context.registerModType(
+    MOD_TYPE_INI_TWEAKS,
+    90,
+    isGameActive(context.api),
+    () => undefined,
+    () => Promise.resolve(false) as any,
+    { deploymentEssential: false, name: 'Merged INI (Do not use)', noConflicts: true, });
+
   context.registerLoadOrder(new OblivionReLoadOrder(context.api));
 
   context.registerTest('excluded-plugins-detected', 'plugins-changed',
@@ -217,6 +226,7 @@ function main(context: types.IExtensionContext) {
 
     context.api.onAsync('will-remove-mods', onModsRemoved(context.api));
     context.api.onAsync('did-deploy', onDidDeployEvent(context.api));
+    context.api.onAsync('will-deploy', onWillDeployEvent(context.api));
     // context.api.onAsync('bake-settings', onBakeSettings(context.api));
     // context.api.onAsync('will-purge', onWillPurgeEvent(context.api));
   });
@@ -242,7 +252,7 @@ const setup = (api: types.IExtensionApi) => async (discovery: types.IDiscoveryRe
       .then(() => trySetPrimaryTool(api))
       .catch((err) => {
         api.showErrorNotification('Failed to download requirements', err);
-      })
+      });
   }
 }
 

@@ -18,6 +18,17 @@ import {
 import { IExtensionRequirement, IPluginEntry, LoadOrderManagementType } from './types';
 
 //#region general utility functions
+export const getDocumentsPath = () => {
+  const mygames = path.join(util.getVortexPath('documents'), 'My Games');
+  return path.join(mygames, 'Oblivion Remastered', 'Saved', 'Config', 'Windows');
+}
+
+export async function fileExists(filePath: string): Promise<boolean> {
+  return fs.statAsync(filePath)
+    .then(() => true)
+    .catch(() => false);
+}
+
 export const isGameActive = (api: types.IExtensionApi) => (instanceIds?: string | string[]): boolean => {
   const state = api.getState();
   let gameMode;

@@ -60,8 +60,19 @@ export const MODS_FILE = 'mods.json';
 export const MODS_FILE_BACKUP = 'mods.json.original';
 export const UE4SS_ENABLED_FILE = 'enabled.txt';
 
-export const IGNORE_CONFLICTS = [UE4SS_ENABLED_FILE, 'ue4sslogicmod.info', '.ue4sslogicmod', '.logicmod'];
-export const IGNORE_DEPLOY = [MODS_FILE, MODS_FILE_BACKUP, UE4SS_ENABLED_FILE];
+export const MERGED_INI_MOD_PREFIX = 'obr_merged_ini_'
+export const INI_TWEAKS_PATH_SEG = 'Ini Tweaks';
+export const SUPPORTED_INI_FILES = [
+  'altar.ini',
+];
+
+export const IGNORE_CONFLICTS = SUPPORTED_INI_FILES
+  .concat(UE4SS_ENABLED_FILE, 'ue4sslogicmod.info', '*.ue4sslogicmod', '*.logicmod')
+  .map(file => path.join('**', file).toUpperCase());
+
+export const IGNORE_DEPLOY = SUPPORTED_INI_FILES
+  .concat(MODS_FILE, MODS_FILE_BACKUP, UE4SS_ENABLED_FILE)
+  .map(file => file.toUpperCase());
 
 export const UE4SS_DWMAPI = 'dwmapi.dll';
 export const UE4SS_MEMBER_VARIABLE_LAYOUT_FILE = 'MemberVariableLayout.ini';
@@ -78,6 +89,7 @@ export const TOP_LEVEL_DIRECTORIES = [
 
 export const TOOL_ID_OBSE64 = 'tool-obse64';
 
+export const MOD_TYPE_INI_TWEAKS = `${GAME_ID}-ini-tweaks`;
 export const MOD_TYPE_PAK = `${GAME_ID}-pak-modtype`;
 export const MOD_TYPE_LUA = `${GAME_ID}-lua-modtype`;
 export const MOD_TYPE_BP_PAK = `${GAME_ID}-blueprint-modtype`;

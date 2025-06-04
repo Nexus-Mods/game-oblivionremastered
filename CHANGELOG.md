@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixed missing mods.json file (UE4SS)
 - Fixed sort via loot button appearing when other FBLO games are active
+- Adding INI merging capability (only altar.ini for now)
+
+## 0.1.6 - 2025-05-22
+
+- Fixed inability to switch profiles on some systems
 
 ## 0.1.5 - 2025-05-22
 

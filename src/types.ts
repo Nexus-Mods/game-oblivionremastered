@@ -4,6 +4,23 @@ export type LoadOrder = types.ILoadOrderEntry;
 export type EventType = 'did-deploy' | 'gamemode-activated';
 export type LoadOrderManagementType = 'gamebryo' | 'dnd';
 
+export interface IModLookupInfo {
+  id: string;
+  type: string;
+  fileMD5: string;
+  fileSizeBytes: number;
+  fileName: string;
+  installationPath: string;
+  name?: string;
+  logicalFileName?: string;
+  customFileName?: string;
+  version: string;
+  source?: string;
+  modId?: string;
+  fileId?: string;
+  referenceTag?: string;
+}
+
 export interface IUE4SSLuaModEntry {
   mod_name: string;
   mod_enabled: boolean;
