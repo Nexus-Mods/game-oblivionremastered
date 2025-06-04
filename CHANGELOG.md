@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.1.7 - 2025-05-28
+
+- Adding INI merging capability (only altar.ini for now)
+
+## 0.1.6 - 2025-05-22
+
+- Fixed inability to switch profiles on some systems
+
 ## 0.1.5 - 2025-05-22
 
 - Added loot support
