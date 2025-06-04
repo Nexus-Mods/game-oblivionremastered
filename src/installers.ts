@@ -32,6 +32,27 @@ export const installUE4SSInjector = (api: types.IExtensionApi) => async (files: 
     if (segments.length >= cutoffIdx && path.extname(segments[segments.length - 1]) !== '') {
       const newPath = segments.slice(cutoffIdx).join(path.sep);
       const destination = path.join(targetPath, newPath);
+      const modsFileExists = files.some(file => path.basename(file).toLowerCase() === MODS_FILE.toLowerCase());
+      if (!modsFileExists) {
+        const defaultData = [
+          {
+            "mod_name": "BPML_GenericFunctions",
+            "mod_enabled": true
+          },
+          {
+            "mod_name": "BPModLoaderMod",
+            "mod_enabled": true
+          },
+        ];
+
+        const modsInstr: types.IInstruction = {
+          type: 'generatefile',
+          data: JSON.stringify(defaultData, null, 2),
+          destination: MODS_FILE_BACKUP,
+        }
+        accum.push(modsInstr);
+      }
+
       if (path.basename(iter) === MODS_FILE) {
         const modsData: string = await fs.readFileAsync(path.join(destinationPath, iter), { encoding: 'utf8' });
         const modsInstr: types.IInstruction = {

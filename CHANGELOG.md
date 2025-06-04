@@ -4,8 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## 0.1.7 - 2025-05-28
+## 0.1.7 - 2025-06-03
 
+- Fixed missing mods.json file (UE4SS)
+- Fixed sort via loot button appearing when other FBLO games are active
 - Adding INI merging capability (only altar.ini for now)
 
 ## 0.1.6 - 2025-05-22
