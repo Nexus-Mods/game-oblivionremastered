@@ -96,7 +96,6 @@ export const MOD_TYPE_BP_PAK = `${GAME_ID}-blueprint-modtype`;
 export const MOD_TYPE_UNREAL_PAK_TOOL = `${GAME_ID}-unreal-pak-tool-modtype`;
 export const MOD_TYPE_DATAPATH = `${GAME_ID}-data-folder`;
 export const MOD_TYPE_BINARIES = `${GAME_ID}-binaries-modtype`;
-export const MOD_TYPE_ROOT = `${GAME_ID}-root-modtype`;
 
 export const UE_PAK_TOOL_FILENAME = 'UnrealPakTool.zip';
 
