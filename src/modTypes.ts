@@ -15,6 +15,37 @@ import { resolveUE4SSPath, findInstallFolderByFile } from './util';
 const hasModTypeInstruction = (instructions: types.IInstruction[]) => instructions.find(instr => instr.type === 'setmodtype');
 //#endregion
 
+// ------------------------------------------------------------------
+// Always install to game root so your FOMOD destinations apply
+// ------------------------------------------------------------------
+export function getRootPath(
+    api: types.IExtensionApi,
+    game: types.IGame
+): string {
+    const discovery = selectors.discoveryByGame(api.getState(), game.id);
+    return (discovery && discovery.path) ? discovery.path : '.';
+}
+
+// ------------------------------------------------------------------
+// Installer-style test: only match FOMODs (ModuleConfig.xml),
+// and honor any prior setmodtype
+// ------------------------------------------------------------------
+export async function testRootPath(
+    api: types.IExtensionApi,
+    instructions: types.IInstruction[],
+): Promise<types.ISupportedResult> {
+    // If another installer set the mod type, skip
+    if (instructions.find(i => i.type === 'setmodtype')) {
+        return { supported: false, requiredFiles: [] };
+    }
+    // Detect a FOMOD package by the XML file presence
+    const hasModuleConfig = instructions.some(inst =>
+        inst.type === 'copy' &&
+        path.basename(inst.source as string).toLowerCase() === 'moduleconfig.xml'
+    );
+    return { supported: hasModuleConfig, requiredFiles: [] };
+}
+
 //#region MOD_TYPE_PAK
 export function getPakPath(api: types.IExtensionApi, game: types.IGame) {
   const discovery = selectors.discoveryByGame(api.getState(), game.id);
