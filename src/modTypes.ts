@@ -12,7 +12,7 @@ import { getGamebryoPatterns, getStopPatterns, getTopLevelPatterns, testStopPatt
 import { resolveUE4SSPath, findInstallFolderByFile } from './util';
 
 //#region Utility
-const hasModTypeInstruction = (instructions: types.IInstruction[]) => instructions.find(instr => instr.type === 'setmodtype');
+const hasModTypeInstruction = (instructions: types.IInstruction[]) => instructions.some(instr => instr.type === 'setmodtype');
 //#endregion
 
 // ------------------------------------------------------------------
