@@ -147,13 +147,13 @@ function main(context: types.IExtensionContext) {
     }, () => isGameActive(context.api)() && lootSortingAllowed(context.api),
   )
 
-  context.registerInstaller(`${GAME_ID}-root-mod`, 5, testRootMod as any, installRootMod(context.api) as any);
 
   context.registerInstaller(`${GAME_ID}-ue4ss`, 10, testUE4SSInjector as any, installUE4SSInjector(context.api) as any);
 
   // Runs after UE4SS to ensure that we don't accidentally install UE4SS as a root mod.
   //  But must run before lua and pak installers to ensure we don't install a root mod
   //  as a lua mod.
+  context.registerInstaller(`${GAME_ID}-root-mod`, 15, testRootMod as any, installRootMod(context.api) as any);
 
   context.registerInstaller(`${GAME_ID}-lua-installer`, 30, testLuaMod as any, installLuaMod(context.api) as any);
 
