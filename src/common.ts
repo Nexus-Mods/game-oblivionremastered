@@ -89,6 +89,7 @@ export const TOP_LEVEL_DIRECTORIES = [
 
 export const TOOL_ID_OBSE64 = 'tool-obse64';
 
+export const MOD_TYPE_ROOT = `${GAME_ID}-root-mod`;
 export const MOD_TYPE_INI_TWEAKS = `${GAME_ID}-ini-tweaks`;
 export const MOD_TYPE_PAK = `${GAME_ID}-pak-modtype`;
 export const MOD_TYPE_LUA = `${GAME_ID}-lua-modtype`;

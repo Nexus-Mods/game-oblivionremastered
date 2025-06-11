@@ -11,7 +11,7 @@ import {
   BPPAK_MODSFOLDER_PATH, IGNORE_DEPLOY,
   MOD_TYPE_DATAPATH, NATIVE_PLUGINS, DATA_PATH,
   MOD_TYPE_BINARIES, OBSE64_EXECUTABLE, TOOL_ID_OBSE64,
-  MOD_TYPE_INI_TWEAKS,
+  MOD_TYPE_ROOT, MOD_TYPE_INI_TWEAKS,
 } from './common';
 
 import {
@@ -24,7 +24,7 @@ import { sessionReducer, settingsReducer } from './reducers';
 import { getStopPatterns } from './stopPatterns';
 
 import {
-  getBPPakPath, getPakPath, testBPPakPath, testPakPath,
+  getRootPath, testRootPath, getBPPakPath, getPakPath, testBPPakPath, testPakPath,
   getLUAPath, testLUAPath, getDataPath, testDataPath,
   getBinariesPath, testBinariesPath,
 } from './modTypes';
@@ -147,6 +147,7 @@ function main(context: types.IExtensionContext) {
     }, () => isGameActive(context.api)() && lootSortingAllowed(context.api),
   )
 
+
   context.registerInstaller(`${GAME_ID}-ue4ss`, 10, testUE4SSInjector as any, installUE4SSInjector(context.api) as any);
 
   // Runs after UE4SS to ensure that we don't accidentally install UE4SS as a root mod.
@@ -156,9 +157,19 @@ function main(context: types.IExtensionContext) {
 
   context.registerInstaller(`${GAME_ID}-lua-installer`, 30, testLuaMod as any, installLuaMod(context.api) as any);
 
+  context.registerModType(
+    MOD_TYPE_ROOT,
+    5,
+    isGameActive(context.api),
+    (game: types.IGame) => getRootPath(context.api, game),
+    (instructions: types.IInstruction[]) => testRootPath(context.api, instructions) as any,
+    { deploymentEssential: true, name: 'Root Mod' }
+  );
+
   // BP_PAK modType must have a lower priority than regular PAKs
   //  this ensures that we get a chance to detect the LogicMods folder
   //  structure before we just deploy it to ~mods
+
   context.registerModType(
     MOD_TYPE_BP_PAK,
     5,
