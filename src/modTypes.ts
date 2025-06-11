@@ -33,17 +33,17 @@ export function getRootPath(
 export async function testRootPath(
     api: types.IExtensionApi,
     instructions: types.IInstruction[],
-): Promise<types.ISupportedResult> {
+): Promise<boolean> {
     // If another installer set the mod type, skip
     if (instructions.find(i => i.type === 'setmodtype')) {
-        return { supported: false, requiredFiles: [] };
+        return false;
     }
     // Detect a FOMOD package by the XML file presence
     const hasModuleConfig = instructions.some(inst =>
         inst.type === 'copy' &&
         path.basename(inst.source as string).toLowerCase() === 'moduleconfig.xml'
     );
-    return { supported: hasModuleConfig, requiredFiles: [] };
+    return hasModuleConfig;
 }
 
 //#region MOD_TYPE_PAK
