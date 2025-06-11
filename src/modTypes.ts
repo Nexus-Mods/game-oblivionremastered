@@ -38,7 +38,7 @@ export async function testRootPath(
     if (hasModTypeInstruction(instructions)) {
       return false;
     }
-    return instructions.some(i => i.type === 'attribute' && i.key === 'installerChoices');
+    return instructions.some(i => i.type === 'attribute' && i.key === 'installerChoices' && Array.isArray(i.value.options));
 }
 
 //#region MOD_TYPE_PAK
