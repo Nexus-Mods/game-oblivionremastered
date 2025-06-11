@@ -159,7 +159,7 @@ function main(context: types.IExtensionContext) {
 
   context.registerModType(
     MOD_TYPE_ROOT,
-    5,
+    4,
     isGameActive(context.api),
     (game: types.IGame) => getRootPath(context.api, game),
     (instructions: types.IInstruction[]) => testRootPath(context.api, instructions) as any,
