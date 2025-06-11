@@ -156,6 +156,11 @@ function main(context: types.IExtensionContext) {
 
   context.registerInstaller(`${GAME_ID}-lua-installer`, 30, testLuaMod as any, installLuaMod(context.api) as any);
 
+  // BP_PAK modType must have a lower priority than regular PAKs
+  //  this ensures that we get a chance to detect the LogicMods folder
+    //  structure before we just deploy it to ~mods
+
+
   context.registerModType(
     MOD_TYPE_ROOT,
     5,
@@ -164,10 +169,6 @@ function main(context: types.IExtensionContext) {
     (instructions: types.IInstruction[]) => testRootPath(context.api, instructions) as any,
     { deploymentEssential: true, name: 'Root Mod' }
   );
-
-  // BP_PAK modType must have a lower priority than regular PAKs
-  //  this ensures that we get a chance to detect the LogicMods folder
-  //  structure before we just deploy it to ~mods
 
   context.registerModType(
     MOD_TYPE_BP_PAK,
