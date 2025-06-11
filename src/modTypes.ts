@@ -15,29 +15,6 @@ import { resolveUE4SSPath, findInstallFolderByFile } from './util';
 const hasModTypeInstruction = (instructions: types.IInstruction[]) => instructions.find(instr => instr.type === 'setmodtype');
 //#endregion
 
-export function getRootPath(api: types.IExtensionApi, game: types.IGame) {
-  const discovery = selectors.discoveryByGame(api.getState(), game.id);
-  if (!discovery || !discovery.path) {
-    return '.';
-  }
-  return discovery.path;
-}
-
-export async function testRootPath(
-    api: types.IExtensionApi,
-    instructions: types.IInstruction[]
-): Promise<boolean> {
-    // Skip if another installer has already set modtype
-    if (hasModTypeInstruction(instructions)) {
-        return false;
-    }
-    // Detect FOMOD package by ModuleConfig.xml in copy list
-    return instructions.some(inst =>
-        inst.type === 'copy' &&
-        path.basename(inst.source as string).toLowerCase() === 'moduleconfig.xml'
-    );
-}
-
 //#region MOD_TYPE_PAK
 export function getPakPath(api: types.IExtensionApi, game: types.IGame) {
   const discovery = selectors.discoveryByGame(api.getState(), game.id);
