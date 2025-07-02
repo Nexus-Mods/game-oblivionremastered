@@ -12,7 +12,7 @@ import { getGamebryoPatterns, getStopPatterns, getTopLevelPatterns, testStopPatt
 import { resolveUE4SSPath, findInstallFolderByFile } from './util';
 
 //#region Utility
-const hasModTypeInstruction = (instructions: types.IInstruction[]) => instructions.find(instr => instr.type === 'setmodtype');
+const hasModTypeInstruction = (instructions: types.IInstruction[]) => instructions.some(instr => instr.type === 'setmodtype');
 //#endregion
 
 // ------------------------------------------------------------------
@@ -35,15 +35,10 @@ export async function testRootPath(
     instructions: types.IInstruction[],
 ): Promise<boolean> {
     // If another installer set the mod type, skip
-    if (instructions.find(i => i.type === 'setmodtype')) {
-        return false;
+    if (hasModTypeInstruction(instructions)) {
+      return false;
     }
-    // Detect a FOMOD package by the XML file presence
-    const hasModuleConfig = instructions.some(inst =>
-        inst.type === 'copy' &&
-        path.basename(inst.source as string).toLowerCase() === 'moduleconfig.xml'
-    );
-    return hasModuleConfig;
+    return instructions.some(i => i.type === 'attribute' && i.key === 'installerChoices' && Array.isArray(i.value.options));
 }
 
 //#region MOD_TYPE_PAK

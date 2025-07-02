@@ -151,6 +151,7 @@ export async function createIniMergeMod(api: types.IExtensionApi, modName: strin
       modId: 42,
       version: '1.0.0',
       installTime: new Date(),
+      source: 'user-generated',
     },
     installationPath: modName,
     type: MOD_TYPE_INI_TWEAKS,
@@ -178,12 +179,15 @@ export async function ensureIniMergeMod(api: types.IExtensionApi, profile: types
     }
   } else {
     const batched = [
-      actions.setModAttribute(profile.gameId, modName, 'installTime', new Date()),
-      actions.setModAttribute(profile.gameId, modName, 'name', 'OBR INI Merge Mod'),
-      actions.setModAttribute(profile.gameId, modName, 'type', MOD_TYPE_INI_TWEAKS),
-      actions.setModAttribute(profile.gameId, modName, 'logicalFileName', 'OBR INI Merge Mod'),
-      actions.setModAttribute(profile.gameId, modName, 'modId', 42),
-      actions.setModAttribute(profile.gameId, modName, 'version', '1.0.0'),
+      actions.setModAttributes(profile.gameId, modName, {
+        installTime: new Date(),
+        name: 'OBR INI Merge Mod',
+        type: MOD_TYPE_INI_TWEAKS,
+        logicalFileName: 'OBR INI Merge Mod',
+        modId: 42,
+        version: '1.0.0',
+        source: 'user-generated'
+      }),
     ];
     util.batchDispatch(api.store, batched);
   }
